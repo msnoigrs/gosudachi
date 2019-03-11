@@ -48,22 +48,27 @@ func bufferToUint64(bytebuffer []byte, offset int) (int, uint64) {
 	return offsetend, ret
 }
 
+func bufferToStringLength(bytebuffer []byte, offset int) (int, int) {
+	length := bytebuffer[offset]
+	if (length & 0x80) == 0x80 {
+		high := int16(length & 0x7F)
+		low := int16(bytebuffer[offset+1])
+		return offset + 2, int(high<<8 | low)
+	}
+	return offset + 1, int(length)
+}
+
 type bufferToStringFunc func(bytebuffer []byte, offset int) (int, string)
 
 func bufferToString(bytebuffer []byte, offset int) (int, string) {
-	// length := int(bytebuffer[offset])
-	// offset++
-	var length uint16
-	offset, length = bufferToUint16(bytebuffer, offset)
+	offset, length := bufferToStringLength(bytebuffer, offset)
 	offsetend := offset + int(length)
 	return offsetend, string(bytebuffer[offset:offsetend])
 }
 
 func bufferToStringUtf16(bytebuffer []byte, offset int) (int, string) {
-	length := int(bytebuffer[offset])
-	offset++
-
 	// java compatible
+	offset, length := bufferToStringLength(bytebuffer, offset)
 	javainternal := make([]uint16, length, length)
 	for i := 0; i < length; i++ {
 		s := offset + 2*i

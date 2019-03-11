@@ -112,8 +112,7 @@ func (l *wordInfoList) getWordInfo(wordId int32) *WordInfo {
 	index := l.wordIdToOffset(wordId)
 
 	index, surface := l.bufferToStringF(l.bytebuffer, index)
-	headwordLength := int16(l.bytebuffer[index])
-	index += 1
+	index, headwordLength := bufferToStringLength(l.bytebuffer, index)
 	index, posId := bufferToInt16(l.bytebuffer, index)
 	index, normalizedForm := l.bufferToStringF(l.bytebuffer, index)
 	if normalizedForm == "" {
@@ -147,7 +146,7 @@ func (l *wordInfoList) getWordInfo(wordId int32) *WordInfo {
 
 	return &WordInfo{
 		Surface:              surface,
-		HeadwordLength:       headwordLength,
+		HeadwordLength:       int16(headwordLength),
 		PosId:                posId,
 		NormalizedForm:       normalizedForm,
 		DictionaryFormWordId: dictionaryFormWordId,
@@ -319,8 +318,7 @@ func (lexicon *DoubleArrayLexicon) WriteWordInfos(writer io.Writer, offset int64
 		if err != nil {
 			return 0, offsets, err
 		}
-		// may overflow
-		err = buffer.WriteByte(byte(wi.HeadwordLength))
+		err = writeStringLength(buffer, wi.HeadwordLength)
 		if err != nil {
 			return 0, offsets, err
 		}

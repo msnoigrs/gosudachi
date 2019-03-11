@@ -21,10 +21,11 @@ import (
 )
 
 const (
-	MaxLength       = 255
-	MaxLengthUtf8   = 65535
-	NumberOfColumns = 18
-	BufferSize      = 1024 * 1024
+	StringUtf8MaxLength  = 32767
+	StringUtf16MaxLength = 32767
+	ArrayMaxLength       = 127
+	NumberOfColumns      = 18
+	BufferSize           = 1024 * 1024
 )
 
 type PosIdStore interface {
@@ -362,13 +363,30 @@ func (dicbuilder *DictionaryBuilder) BuildLexicon(store PosIdStore, input io.Rea
 	return nil
 }
 
+func writeStringLength(buffer *bytes.Buffer, length int16) error {
+	if length <= 127 {
+		err := buffer.WriteByte(byte(length))
+		if err != nil {
+			return err
+		}
+	} else {
+		err := buffer.WriteByte(byte((length >> 8) | 0x80))
+		if err != nil {
+			return err
+		}
+		err = buffer.WriteByte(byte(length & 0xFF))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func writeString(buffer *bytes.Buffer, s string) error {
-	// err := buffer.WriteByte(byte(len(s))) // too short
-	err := binary.Write(buffer, binary.LittleEndian, uint16(len(s)))
+	err := writeStringLength(buffer, int16(len(s)))
 	if err != nil {
 		return err
 	}
-
 	_, err = buffer.WriteString(s)
 	if err != nil {
 		return err
@@ -380,7 +398,7 @@ func writeStringUtf16(buffer *bytes.Buffer, s string) error {
 	// java compatible
 	javainternal := utf16.Encode([]rune(s))
 
-	err := buffer.WriteByte(byte(len(javainternal)))
+	err := writeStringLength(buffer, int16(len(javainternal)))
 	if err != nil {
 		return err
 	}
@@ -677,8 +695,7 @@ func (dicbuilder *DictionaryBuilder) writeWordInfo(writer io.WriteSeeker) error 
 		if err != nil {
 			return err
 		}
-		// may overflow
-		err = dicbuilder.buffer.WriteByte(byte(wi.HeadwordLength))
+		err = writeStringLength(dicbuilder.buffer, wi.HeadwordLength)
 		if err != nil {
 			return err
 		}
@@ -756,7 +773,7 @@ func parseSplitInfo(info string) ([]int32, error) {
 		return []int32{}, nil
 	}
 	ids := strings.Split(info, "/")
-	if len(ids) > MaxLength {
+	if len(ids) > ArrayMaxLength {
 		return nil, errors.New("too many units")
 	}
 	ret := make([]int32, 0, len(ids))
@@ -771,9 +788,9 @@ func parseSplitInfo(info string) ([]int32, error) {
 }
 
 func utf16CountInString(s string) bool {
-	return len(utf16.Encode([]rune(s))) > MaxLength
+	return len(utf16.Encode([]rune(s))) > StringUtf16MaxLength
 }
 
 func utf8CountInString(s string) bool {
-	return len(s) > MaxLengthUtf8
+	return len(s) > StringUtf8MaxLength
 }
