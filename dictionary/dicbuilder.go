@@ -215,18 +215,19 @@ type writeStringFunc func(buffer *bytes.Buffer, s string) error
 type stringLenFunc func(s string) bool
 
 type DictionaryBuilder struct {
-	trieKeys     *redblacktree.Tree
-	params       [][]int16
-	wordInfos    []*WordInfo
-	buffer       *bytes.Buffer
-	wordId       int32
-	WordSize     int32
-	position     int64
-	writeStringF writeStringFunc
-	stringLen    stringLenFunc
+	trieKeys         *redblacktree.Tree
+	params           [][]int16
+	wordInfos        []*WordInfo
+	isUserDictionary bool
+	buffer           *bytes.Buffer
+	wordId           int32
+	WordSize         int32
+	position         int64
+	writeStringF     writeStringFunc
+	stringLen        stringLenFunc
 }
 
-func NewDictionaryBuilder(position int64, utf16string bool) *DictionaryBuilder {
+func NewDictionaryBuilder(position int64, isUserDictionary bool, utf16string bool) *DictionaryBuilder {
 	ret := &DictionaryBuilder{
 		trieKeys: redblacktree.NewWith(func(a, b interface{}) int {
 			l, _ := a.([]byte)
@@ -242,8 +243,9 @@ func NewDictionaryBuilder(position int64, utf16string bool) *DictionaryBuilder {
 			}
 			return len(l) - len(r)
 		}),
-		buffer:   bytes.NewBuffer([]byte{}),
-		position: position,
+		isUserDictionary: isUserDictionary,
+		buffer:           bytes.NewBuffer([]byte{}),
+		position:         position,
 	}
 	if utf16string {
 		ret.writeStringF = writeStringUtf16
@@ -317,11 +319,11 @@ func (dicbuilder *DictionaryBuilder) BuildLexicon(store PosIdStore, input io.Rea
 
 		posId := store.GetPosId(cols[5], cols[6], cols[7], cols[8], cols[9], cols[10])
 
-		aUnitSplit, err := parseSplitInfo(cols[15])
+		aUnitSplit, err := dicbuilder.parseSplitInfo(cols[15])
 		if err != nil {
 			return fmt.Errorf("%s: columns 15 at line %d", err, r.numLine)
 		}
-		bUnitSplit, err := parseSplitInfo(cols[16])
+		bUnitSplit, err := dicbuilder.parseSplitInfo(cols[16])
 		if err != nil {
 			return fmt.Errorf("%s: columns 16 at line %d", err, r.numLine)
 		}
@@ -340,7 +342,7 @@ func (dicbuilder *DictionaryBuilder) BuildLexicon(store PosIdStore, input io.Rea
 			dicFormWordId = int32(cols13)
 		}
 
-		wordStructure, err := parseSplitInfo(cols[17])
+		wordStructure, err := dicbuilder.parseSplitInfo(cols[17])
 		if err != nil {
 			return fmt.Errorf("%s: columns 17 at line %d", err, r.numLine)
 		}
@@ -768,7 +770,7 @@ func (dicbuilder *DictionaryBuilder) writeWordInfo(writer io.WriteSeeker) error 
 	return nil
 }
 
-func parseSplitInfo(info string) ([]int32, error) {
+func (dicbuilder *DictionaryBuilder) parseSplitInfo(info string) ([]int32, error) {
 	if info == "*" {
 		return []int32{}, nil
 	}
@@ -778,11 +780,23 @@ func parseSplitInfo(info string) ([]int32, error) {
 	}
 	ret := make([]int32, 0, len(ids))
 	for _, id := range ids {
-		parsed, err := strconv.ParseInt(id, 10, 32)
-		if err != nil {
-			return nil, err
+		if strings.HasPrefix(id, "U") {
+			parsed, err := strconv.ParseInt(id[1:], 10, 32)
+			if err != nil {
+				return nil, err
+			}
+			pint := int32(parsed)
+			if dicbuilder.isUserDictionary {
+				pint |= (1 << 28)
+			}
+			ret = append(ret, pint)
+		} else {
+			parsed, err := strconv.ParseInt(id, 10, 32)
+			if err != nil {
+				return nil, err
+			}
+			ret = append(ret, int32(parsed))
 		}
-		ret = append(ret, int32(parsed))
 	}
 	return ret, nil
 }

@@ -78,7 +78,7 @@ Options:
 	}
 	defer matrixReader.Close()
 
-	dicbuilder := dictionary.NewDictionaryBuilder(int64(n), utf16string)
+	dicbuilder := dictionary.NewDictionaryBuilder(int64(n), false, utf16string)
 	store := dictionary.NewPosTable()
 
 	fmt.Fprint(os.Stderr, "reading the source file...")

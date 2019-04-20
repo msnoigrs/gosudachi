@@ -124,19 +124,8 @@ func (l *wordInfoList) getWordInfo(wordId int32) *WordInfo {
 		readingForm = surface
 	}
 	index, aUnitSplit := bufferToInt32Array(l.bytebuffer, index)
-	if !l.isValidSplit(aUnitSplit) {
-		aUnitSplit = make([]int32, 0)
-	}
-
 	index, bUnitSplit := bufferToInt32Array(l.bytebuffer, index)
-	if !l.isValidSplit(aUnitSplit) {
-		bUnitSplit = make([]int32, 0)
-	}
-
 	index, wordStructure := bufferToInt32Array(l.bytebuffer, index)
-	if !l.isValidSplit(aUnitSplit) {
-		aUnitSplit = make([]int32, 0)
-	}
 
 	dictionaryForm := surface
 	if dictionaryFormWordId >= 0 && dictionaryFormWordId != wordId {
@@ -162,15 +151,6 @@ func (l *wordInfoList) wordIdToOffset(wordId int32) int {
 	s := l.offset + 4*int(wordId)
 	_, ret := bufferToInt32(l.bytebuffer, s)
 	return int(ret)
-}
-
-func (l *wordInfoList) isValidSplit(split []int32) bool {
-	for _, wordId := range split {
-		if wordId >= l.wordSize {
-			return false
-		}
-	}
-	return true
 }
 
 type DoubleArrayLexicon struct {

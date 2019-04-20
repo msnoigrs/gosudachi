@@ -47,7 +47,11 @@ func (s *LexiconSet) GetCost(wordId int32) int16 {
 func (s *LexiconSet) GetWordInfo(wordId int32) *WordInfo {
 	dictId := int(uint32(wordId) >> 28)
 	wordId = int32(uint32(wordId) & 0xfffffff)
-	return s.lexicons[dictId].GetWordInfo(wordId)
+	wi := s.lexicons[dictId].GetWordInfo(wordId)
+	s.convertSplit(wi.AUnitSplit, dictId)
+	s.convertSplit(wi.BUnitSplit, dictId)
+	s.convertSplit(wi.WordStructure, dictId)
+	return wi
 }
 
 func (s *LexiconSet) GetDictionaryId(wordId int32) int {
@@ -60,6 +64,16 @@ func (s *LexiconSet) Size() int32 {
 		n += l.Size()
 	}
 	return n
+}
+
+func (s *LexiconSet) convertSplit(split []int32, dictId int) {
+	for i, id := range split {
+		if s.GetDictionaryId(id) > 0 {
+			wordId := uint32(id) & 0xfffffff
+			// buildWordId
+			split[i] = int32(uint32(dictId<<28) | wordId)
+		}
+	}
 }
 
 type LexiconSetIterator struct {

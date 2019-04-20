@@ -104,7 +104,7 @@ Options:
 		os.Exit(1)
 	}
 
-	dicbuilder := dictionary.NewDictionaryBuilder(int64(n), utf16string)
+	dicbuilder := dictionary.NewDictionaryBuilder(int64(n), true, utf16string)
 
 	fmt.Fprint(os.Stderr, "reading the source file...")
 	for _, lexiconpath := range flag.Args() {
