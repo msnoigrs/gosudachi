@@ -273,7 +273,7 @@ func run(tokenizer *gosudachi.JapaneseTokenizer, mode string, text string, outpu
 func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `Usage of %s:
-	%s [-r file] [-m A|B|C] [-o file] [-j] [file ...]
+	%s [-r file] [-m A|B|C] [-o file] [-p dir] [-j] [file ...]
 
 Options:
 `, os.Args[0], os.Args[0])
@@ -281,16 +281,18 @@ Options:
 	}
 
 	var (
-		settingfile string
-		mode        string
-		outputfile  string
-		printall    bool
-		ignoreerr   bool
-		debugmode   bool
-		utf16string bool
+		settingfile  string
+		mode         string
+		resourcesdir string
+		outputfile   string
+		printall     bool
+		ignoreerr    bool
+		debugmode    bool
+		utf16string  bool
 	)
 	flag.StringVar(&settingfile, "r", "", "read settings from file")
 	flag.StringVar(&mode, "m", "C", "mode of splitting")
+	flag.StringVar(&resourcesdir, "p", "", "root directory of resources")
 	flag.StringVar(&outputfile, "o", "", "output to file")
 	flag.BoolVar(&printall, "a", false, "print all fields")
 	flag.BoolVar(&ignoreerr, "f", false, "ignore error")
@@ -299,16 +301,19 @@ Options:
 
 	flag.Parse()
 
-	ex, err := os.Executable()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	if resourcesdir == "" {
+		ex, err := os.Executable()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		resourcesdir = filepath.Dir(ex)
 	}
-	curPath := filepath.Dir(ex)
 
 	var output io.Writer
 	if outputfile != "" {
 		if !filepath.IsAbs(outputfile) {
+			var err error
 			outputfile, err = filepath.Abs(outputfile)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
@@ -328,7 +333,7 @@ Options:
 		output = os.Stdout
 	}
 
-	settings, pluginmaker, err := parseSettings(curPath, settingfile)
+	settings, pluginmaker, err := parseSettings(resourcesdir, settingfile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fail to parse settings: %s\n", err)
 		os.Exit(1)
@@ -400,7 +405,7 @@ Options:
 	}
 }
 
-func parseSettings(curPath string, settingfile string) (gosudachi.Settings, gosudachi.PluginMaker, error) {
+func parseSettings(basePath string, settingfile string) (gosudachi.Settings, gosudachi.PluginMaker, error) {
 	settings := gosudachi.NewSettingsJSON()
 
 	var settingsreader io.Reader
@@ -428,7 +433,7 @@ func parseSettings(curPath string, settingfile string) (gosudachi.Settings, gosu
 		settingsreader = settingsf
 	}
 
-	err := settings.ParseSettingsJSON(curPath, settingsreader)
+	err := settings.ParseSettingsJSON(basePath, settingsreader)
 	if err != nil {
 		return nil, nil, err
 	}
