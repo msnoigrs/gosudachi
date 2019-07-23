@@ -239,7 +239,7 @@ func (l *Lattice) connectNode(rNode *LatticeNode) {
 			rNode.bestPreviousNode = lNode
 		}
 	}
-	rNode.isConnectedToBOS = !(rNode.bestPreviousNode == nil)
+	rNode.isConnectedToBOS = rNode.bestPreviousNode != nil
 	rNode.totalCost += int(rNode.cost)
 }
 
