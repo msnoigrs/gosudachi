@@ -90,7 +90,7 @@ Options:
 		}
 	}
 	p := message.NewPrinter(language.English)
-	p.Fprintf(os.Stderr, " %d words\n", dicbuilder.WordSize)
+	p.Fprintf(os.Stderr, " %d words\n", dicbuilder.EntrySize())
 
 	err = dicbuilder.WriteGrammar(store, matrixReader, outputWriter)
 	if err != nil {
@@ -98,7 +98,7 @@ Options:
 		os.Exit(1)
 	}
 
-	err = dicbuilder.WriteLexicon(outputWriter)
+	err = dicbuilder.WriteLexicon(outputWriter, store)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fail to write lexicon: %s\n", err)
 		os.Exit(1)

@@ -115,7 +115,7 @@ Options:
 		}
 	}
 	p := message.NewPrinter(language.English)
-	p.Fprintf(os.Stderr, " %d words\n", dicbuilder.WordSize)
+	p.Fprintf(os.Stderr, " %d words\n", dicbuilder.EntrySize())
 
 	err = dicbuilder.WriteLexicon(outputWriter)
 	if err != nil {

@@ -28,6 +28,15 @@ const (
 	BufferSize           = 1024 * 1024
 )
 
+type wordEntry struct {
+	Headword string
+	Parameters [3]int16
+	WordInfo *WordInfo
+	AUnitSplitString string
+	BUnitSplitString string
+	WordStructureString string
+}
+
 type PosIdStore interface {
 	GetPosId(posstrings ...string) int16
 }
@@ -216,12 +225,9 @@ type stringLenFunc func(s string) bool
 
 type DictionaryBuilder struct {
 	trieKeys         *redblacktree.Tree
-	params           [][]int16
-	wordInfos        []*WordInfo
+	wordEntries      []*wordEntry
 	isUserDictionary bool
 	buffer           *bytes.Buffer
-	wordId           int32
-	WordSize         int32
 	position         int64
 	writeStringF     writeStringFunc
 	stringLen        stringLenFunc
@@ -260,7 +266,7 @@ func NewDictionaryBuilder(position int64, isUserDictionary bool, utf16string boo
 func (dicbuilder *DictionaryBuilder) BuildLexicon(store PosIdStore, input io.Reader) error {
 	var recordBuf []string
 	r := newLexiconReader(input)
-	for ; ; dicbuilder.wordId++ {
+	for {
 		cols, err := r.readRecord(recordBuf)
 		if err == io.EOF {
 			break
@@ -268,6 +274,7 @@ func (dicbuilder *DictionaryBuilder) BuildLexicon(store PosIdStore, input io.Rea
 		if err != nil {
 			return err
 		}
+		// parseLine
 		if len(cols) != NumberOfColumns {
 			return fmt.Errorf("invalid format at line: columns length must be %d: at line %d", NumberOfColumns, r.numLine)
 		}
@@ -285,20 +292,14 @@ func (dicbuilder *DictionaryBuilder) BuildLexicon(store PosIdStore, input io.Rea
 			return fmt.Errorf("string is too long: column 12 at line %d", r.numLine)
 		}
 
-		if len(cols[0]) == 0 {
-			return fmt.Errorf("headword is empty at line %d", r.numLine)
-		}
+		entry := &wordEntry{}
+
+		// headword for trie
 		if cols[1] != "-1" {
-			// headword
-			v, ok := dicbuilder.trieKeys.Get([]byte(cols[0]))
-			if !ok {
-				dicbuilder.trieKeys.Put([]byte(cols[0]), []int32{dicbuilder.wordId})
-			} else {
-				wordIds, _ := v.([]int32)
-				dicbuilder.trieKeys.Put([]byte(cols[0]), append(wordIds, dicbuilder.wordId))
-			}
-			// left-id, right-id, cost
+			entry.Headword = cols[0]
 		}
+
+		// left-id, right-id, cost
 		cols1, err := strconv.ParseInt(cols[1], 10, 16)
 		if err != nil {
 			return fmt.Errorf("%s: column 1 at line %d", err, r.numLine)
@@ -311,25 +312,28 @@ func (dicbuilder *DictionaryBuilder) BuildLexicon(store PosIdStore, input io.Rea
 		if err != nil {
 			return fmt.Errorf("%s: column 3 at line %d", err, r.numLine)
 		}
-		dicbuilder.params = append(dicbuilder.params, []int16{
-			int16(cols1),
-			int16(cols2),
-			int16(cols3)},
-		)
+		entry.Parameters[0] = int16(cols1)
+		entry.Parameters[1] = int16(cols2)
+		entry.Parameters[2] = int16(cols3)
 
+		// part of speech
 		posId := store.GetPosId(cols[5], cols[6], cols[7], cols[8], cols[9], cols[10])
 
-		aUnitSplit, err := dicbuilder.parseSplitInfo(cols[15])
-		if err != nil {
-			return fmt.Errorf("%s: columns 15 at line %d", err, r.numLine)
+		if strings.Count(cols[15], "/") + 1 > ArrayMaxLength {
+			return fmt.Errorf("too many units: columns 15 at line %d", r.numLine)
 		}
-		bUnitSplit, err := dicbuilder.parseSplitInfo(cols[16])
-		if err != nil {
-			return fmt.Errorf("%s: columns 16 at line %d", err, r.numLine)
+		if strings.Count(cols[16], "/") + 1 > ArrayMaxLength {
+			return fmt.Errorf("too many units: columns 16 at line %d", r.numLine)
 		}
-		if cols[14] == "A" && (len(aUnitSplit) > 0 || len(bUnitSplit) > 0) {
+		if strings.Count(cols[17], "/") + 1 > ArrayMaxLength {
+			return fmt.Errorf("too many units: columns 17 at line %d", r.numLine)
+		}
+		if cols[14] == "A" && (cols[15] != "*" || cols[16] != "*") {
 			return fmt.Errorf("invalid splitting at line %d", r.numLine)
 		}
+		entry.AUnitSplitString = cols[15]
+		entry.BUnitSplitString = cols[16]
+		entry.WordStructureString = cols[17]
 
 		var dicFormWordId int32
 		if cols[13] == "*" {
@@ -342,25 +346,29 @@ func (dicbuilder *DictionaryBuilder) BuildLexicon(store PosIdStore, input io.Rea
 			dicFormWordId = int32(cols13)
 		}
 
-		wordStructure, err := dicbuilder.parseSplitInfo(cols[17])
-		if err != nil {
-			return fmt.Errorf("%s: columns 17 at line %d", err, r.numLine)
+		entry.WordInfo = &WordInfo{
+			Surface: cols[4], // headword
+			HeadwordLength: int16(len(cols[0])),
+			PosId: posId,
+			NormalizedForm: cols[12],      // normalizedForm
+			DictionaryFormWordId: dicFormWordId, // dictionaryFormWordId
+			DictionaryForm: "",            // dummy
+			ReadingForm: cols[11],      // readingForm
 		}
 
-		dicbuilder.wordInfos = append(dicbuilder.wordInfos, &WordInfo{
-			cols[4], // headword
-			int16(len(cols[0])),
-			posId,
-			cols[12],      // normalizedForm
-			dicFormWordId, // dictionaryFormWordId
-			"",            // dummy
-			cols[11],      // readingForm
-			aUnitSplit,
-			bUnitSplit,
-			wordStructure, // wordStructure
-		})
+		if entry.Headword != "" {
+			// addToTrie
+			wordId := int32(len(dicbuilder.wordEntries))
+			v, ok := dicbuilder.trieKeys.Get([]byte(entry.Headword))
+			if !ok {
+				dicbuilder.trieKeys.Put([]byte(entry.Headword), []int32{wordId})
+			} else {
+				wordIds, _ := v.([]int32)
+				dicbuilder.trieKeys.Put([]byte(entry.Headword), append(wordIds, wordId))
+			}
+		}
+		dicbuilder.wordEntries = append(dicbuilder.wordEntries, entry)
 	}
-	dicbuilder.WordSize = dicbuilder.wordId
 
 	return nil
 }
@@ -440,6 +448,7 @@ func (dicbuilder *DictionaryBuilder) WriteGrammar(postable *PosTable, input io.R
 
 	fmt.Fprint(os.Stderr, "writing the POS table...")
 
+	// convertPOSTable
 	err := binary.Write(dicbuilder.buffer, binary.LittleEndian, uint16(len(postable.table)))
 	if err != nil {
 		return err
@@ -463,6 +472,7 @@ func (dicbuilder *DictionaryBuilder) WriteGrammar(postable *PosTable, input io.R
 	p.Fprintf(os.Stderr, " %d bytes\n", n)
 	dicbuilder.buffer.Reset()
 
+	// convertMatrix
 	r := lnreader.NewLineNumberReader(input)
 	header, err := r.ReadLine()
 	if err == io.EOF {
@@ -548,7 +558,7 @@ func (dicbuilder *DictionaryBuilder) WriteGrammar(postable *PosTable, input io.R
 	return nil
 }
 
-func (dicbuilder *DictionaryBuilder) WriteLexicon(writer io.WriteSeeker) error {
+func (dicbuilder *DictionaryBuilder) WriteLexicon(writer io.WriteSeeker, store PosIdStore) error {
 	bwriter := bufio.NewWriter(writer)
 
 	trie := dartsclone.NewDoubleArray()
@@ -557,7 +567,7 @@ func (dicbuilder *DictionaryBuilder) WriteLexicon(writer io.WriteSeeker) error {
 
 	keys := make([][]byte, size, size)
 	values := make([]int, size, size)
-	wordIdTable := bytes.NewBuffer(make([]byte, 0, dicbuilder.WordSize*(4+2)))
+	wordIdTable := bytes.NewBuffer(make([]byte, 0, len(dicbuilder.wordEntries)*(4+2)))
 
 	var position int
 	it := dicbuilder.trieKeys.Iterator()
@@ -573,8 +583,8 @@ func (dicbuilder *DictionaryBuilder) WriteLexicon(writer io.WriteSeeker) error {
 			return err
 		}
 		position++
-		for _, wordId := range wordIds {
-			err := binary.Write(wordIdTable, binary.LittleEndian, uint32(wordId))
+		for _, wid := range wordIds {
+			err := binary.Write(wordIdTable, binary.LittleEndian, uint32(wid))
 			if err != nil {
 				return err
 			}
@@ -636,20 +646,20 @@ func (dicbuilder *DictionaryBuilder) WriteLexicon(writer io.WriteSeeker) error {
 	p.Fprintf(os.Stderr, " %d bytes\n", n+4)
 
 	fmt.Fprint(os.Stderr, "writing the word parameters...")
-	err = binary.Write(dicbuilder.buffer, binary.LittleEndian, uint32(len(dicbuilder.params)))
+	err = binary.Write(dicbuilder.buffer, binary.LittleEndian, uint32(len(dicbuilder.wordEntries)))
 	if err != nil {
 		return err
 	}
-	for _, param := range dicbuilder.params {
-		err = binary.Write(dicbuilder.buffer, binary.LittleEndian, uint16(param[0]))
+	for _, entry := range dicbuilder.wordEntries {
+		err = binary.Write(dicbuilder.buffer, binary.LittleEndian, uint16(entry.Parameters[0]))
 		if err != nil {
 			return err
 		}
-		err = binary.Write(dicbuilder.buffer, binary.LittleEndian, uint16(param[1]))
+		err = binary.Write(dicbuilder.buffer, binary.LittleEndian, uint16(entry.Parameters[1]))
 		if err != nil {
 			return err
 		}
-		err = binary.Write(dicbuilder.buffer, binary.LittleEndian, uint16(param[2]))
+		err = binary.Write(dicbuilder.buffer, binary.LittleEndian, uint16(entry.Parameters[2]))
 		if err != nil {
 			return err
 		}
@@ -660,14 +670,14 @@ func (dicbuilder *DictionaryBuilder) WriteLexicon(writer io.WriteSeeker) error {
 		dicbuilder.position += n
 		dicbuilder.buffer.Reset()
 	}
-	p.Fprintf(os.Stderr, " %d bytes\n", len(dicbuilder.params)*6+4)
+	p.Fprintf(os.Stderr, " %d bytes\n", len(dicbuilder.wordEntries)*6+4)
 
 	err = bwriter.Flush()
 	if err != nil {
 		return err
 	}
 
-	err = dicbuilder.writeWordInfo(writer)
+	err = dicbuilder.writeWordInfo(writer, store)
 	if err != nil {
 		return err
 	}
@@ -675,8 +685,8 @@ func (dicbuilder *DictionaryBuilder) WriteLexicon(writer io.WriteSeeker) error {
 	return nil
 }
 
-func (dicbuilder *DictionaryBuilder) writeWordInfo(writer io.WriteSeeker) error {
-	offsetslen := int64(4 * len(dicbuilder.wordInfos))
+func (dicbuilder *DictionaryBuilder) writeWordInfo(writer io.WriteSeeker, store PosIdStore) error {
+	offsetslen := int64(4 * len(dicbuilder.wordEntries))
 	_, err := writer.Seek(offsetslen, io.SeekCurrent)
 	if err != nil {
 		return err
@@ -688,7 +698,8 @@ func (dicbuilder *DictionaryBuilder) writeWordInfo(writer io.WriteSeeker) error 
 	fmt.Fprint(os.Stderr, "writing the wordInfos...")
 	base := dicbuilder.position + offsetslen
 	position := base
-	for _, wi := range dicbuilder.wordInfos {
+	for _, we := range dicbuilder.wordEntries {
+		wi := we.WordInfo
 		err = binary.Write(offsets, binary.LittleEndian, uint32(position))
 		if err != nil {
 			return err
@@ -725,15 +736,27 @@ func (dicbuilder *DictionaryBuilder) writeWordInfo(writer io.WriteSeeker) error 
 		if err != nil {
 			return err
 		}
-		err = dicbuilder.writeIntArray(wi.AUnitSplit)
+		aUnitSplit, err := dicbuilder.parseSplitInfo(we.AUnitSplitString, store)
 		if err != nil {
 			return err
 		}
-		err = dicbuilder.writeIntArray(wi.BUnitSplit)
+		err = dicbuilder.writeIntArray(aUnitSplit)
 		if err != nil {
 			return err
 		}
-		err = dicbuilder.writeIntArray(wi.WordStructure)
+		bUnitSplit, err := dicbuilder.parseSplitInfo(we.BUnitSplitString, store)
+		if err != nil {
+			return err
+		}
+		err = dicbuilder.writeIntArray(bUnitSplit)
+		if err != nil {
+			return err
+		}
+		wordStructure, err := dicbuilder.parseSplitInfo(we.WordStructureString, store)
+		if err != nil {
+			return err
+		}
+		err = dicbuilder.writeIntArray(wordStructure)
 		if err != nil {
 			return err
 		}
@@ -770,35 +793,88 @@ func (dicbuilder *DictionaryBuilder) writeWordInfo(writer io.WriteSeeker) error 
 	return nil
 }
 
-func (dicbuilder *DictionaryBuilder) parseSplitInfo(info string) ([]int32, error) {
+func (dicbuilder *DictionaryBuilder) parseSplitInfo(info string, store PosIdStore) ([]int32, error) {
 	if info == "*" {
 		return []int32{}, nil
 	}
-	ids := strings.Split(info, "/")
-	if len(ids) > ArrayMaxLength {
-		return nil, errors.New("too many units")
+	words := strings.Split(info, "/")
+	if len(words) > ArrayMaxLength {
+		return []int32{}, errors.New("too many units")
 	}
-	ret := make([]int32, 0, len(ids))
-	for _, id := range ids {
-		if strings.HasPrefix(id, "U") {
-			parsed, err := strconv.ParseInt(id[1:], 10, 32)
-			if err != nil {
-				return nil, err
+	ret := make([]int32, 0, len(words))
+	for _, word := range words {
+		if strings.HasPrefix(word, "U") {
+			parsed, err := strconv.ParseInt(word[1:], 10, 32)
+			if err == nil {
+				pint := int32(parsed)
+				if dicbuilder.isUserDictionary {
+					pint |= (1 << 28)
+				}
+				if pint < 0 || pint >= int32(len(dicbuilder.wordEntries)) {
+					return []int32{}, fmt.Errorf("invalid word ID: %s", word)
+				}
+				ret = append(ret, pint)
+				continue
 			}
+		}
+
+		parsed, err := strconv.ParseInt(word, 10, 32)
+		if err == nil {
 			pint := int32(parsed)
-			if dicbuilder.isUserDictionary {
-				pint |= (1 << 28)
+			if pint < 0 || pint >= int32(len(dicbuilder.wordEntries)) {
+				return []int32{}, fmt.Errorf("invalid word ID: %s", word)
 			}
 			ret = append(ret, pint)
-		} else {
-			parsed, err := strconv.ParseInt(id, 10, 32)
-			if err != nil {
-				return nil, err
-			}
-			ret = append(ret, int32(parsed))
+			continue
 		}
+
+		wid, err := dicbuilder.wordToId(word, store)
+		if err != nil {
+			return []int32{}, err
+		}
+		if wid < 0 {
+			return []int32{}, fmt.Errorf("not found such a word: %s", word)
+		}
+		ret = append(ret, int32(wid))
 	}
 	return ret, nil
+}
+
+func (dicbuilder *DictionaryBuilder) wordToId(text string, store PosIdStore) (int, error) {
+	var recordBuf []string
+	r := newLexiconReader(strings.NewReader(text))
+	for {
+		cols, err := r.readRecord(recordBuf)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return -1, err
+		}
+		if len(cols) < 8 {
+			return -1, fmt.Errorf("too few columns: %s", text)
+		}
+		posId := store.GetPosId(cols[1], cols[2], cols[3], cols[4], cols[5], cols[6])
+		if posId < 0 {
+			return -1, fmt.Errorf("invalid part of speech: %s", text)
+		}
+		return dicbuilder.getWordId(cols[0], posId, cols[7]), nil
+	}
+	return -1, nil
+}
+
+func (dicbuilder *DictionaryBuilder) getWordId(headword string, posId int16, readingForm string) int {
+	for wid, entry := range dicbuilder.wordEntries {
+		wi := entry.WordInfo
+		if wi.Surface == headword && wi.PosId == posId && wi.ReadingForm == readingForm {
+			return wid
+		}
+	}
+	return -1
+}
+
+func (dicbuilder *DictionaryBuilder) EntrySize() int {
+	return len(dicbuilder.wordEntries)
 }
 
 func utf16CountInString(s string) bool {

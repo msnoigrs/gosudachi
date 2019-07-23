@@ -193,6 +193,19 @@ func (lexicon *DoubleArrayLexicon) Lookup(text []byte, offset int) *DoubleArrayL
 	return newDoubleArrayLexiconIterator(it, lexicon.wordIdT)
 }
 
+func (lexicon *DoubleArrayLexicon) GetWordId(headword string, posId int16, readingForm string) int32 {
+	var wid int32
+	for ; wid < lexicon.wordInfos.wordSize; wid++ {
+		wi := lexicon.wordInfos.getWordInfo(wid)
+		if wi.Surface == headword &&
+			wi.PosId == posId &&
+			wi.ReadingForm == readingForm {
+			return wid
+		}
+	}
+	return -1
+}
+
 func (lexicon *DoubleArrayLexicon) GetLeftId(wordId int32) int16 {
 	return lexicon.wordParams.getLeftId(wordId)
 }

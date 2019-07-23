@@ -26,6 +26,17 @@ func (s *LexiconSet) Lookup(text []byte, offset int) *LexiconSetIterator {
 	return newLexiconSetIterator(text, offset, s.lexicons)
 }
 
+func (s *LexiconSet) GetWordId(headword string, posId int16, readingForm string) int32 {
+	for dictId := 1; dictId < len(s.lexicons); dictId++ {
+		wordId := s.lexicons[dictId].GetWordId(headword, posId, readingForm)
+		if wordId >= 0 {
+			// buildWordId
+			return int32(uint32(dictId)<<28) | wordId
+		}
+	}
+	return s.lexicons[0].GetWordId(headword, posId, readingForm)
+}
+
 func (s *LexiconSet) GetLeftId(wordId int32) int16 {
 	dictId := int(uint32(wordId) >> 28)
 	wordId = int32(uint32(wordId) & 0xfffffff)
