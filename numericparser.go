@@ -57,7 +57,7 @@ func (n *stringNumber) append(i int) {
 	n.significand = append(n.significand, intToRune(i))
 }
 
-func (n *stringNumber) setScale(i int) {
+func (n *stringNumber) shiftScale(i int) {
 	if len(n.significand) == 0 {
 		n.significand = append(n.significand, '1')
 	}
@@ -223,7 +223,7 @@ func (p *numericParser) append(c rune) bool {
 		return false
 	}
 	if n < 0 && n >= -3 { // isSmallUnit
-		p.tmp.setScale(-n)
+		p.tmp.shiftScale(-n)
 		if !p.subtotal.add(p.tmp) {
 			return false
 		}
@@ -235,7 +235,7 @@ func (p *numericParser) append(c rune) bool {
 		if !p.subtotal.add(p.tmp) || p.subtotal.isZero() {
 			return false
 		}
-		p.subtotal.setScale(-n)
+		p.subtotal.shiftScale(-n)
 		if !p.total.add(p.subtotal) {
 			return false
 		}
