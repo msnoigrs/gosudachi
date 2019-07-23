@@ -83,10 +83,7 @@ func (t *JapaneseTokenizer) Tokenize(mode string, text string) (*MorphemeList, e
 	t.lattice.clear()
 
 	if mode != "C" {
-		path, err = t.splitPath(path, mode)
-		if err != nil {
-			return nil, err
-		}
+		path = t.splitPath(path, mode)
 	}
 
 	if t.DumpOutput != nil {
@@ -158,13 +155,10 @@ func (t *JapaneseTokenizer) buildLattice(input *InputText) error {
 	return nil
 }
 
-func (t *JapaneseTokenizer) splitPath(path []*LatticeNode, mode string) ([]*LatticeNode, error) {
+func (t *JapaneseTokenizer) splitPath(path []*LatticeNode, mode string) []*LatticeNode {
 	newPath := []*LatticeNode{}
 	for _, node := range path {
-		wi, err := node.GetWordInfo()
-		if err != nil {
-			return newPath, err
-		}
+		wi := node.GetWordInfo()
 		var wids []int32
 		if mode == "A" {
 			wids = wi.AUnitSplit
@@ -178,17 +172,14 @@ func (t *JapaneseTokenizer) splitPath(path []*LatticeNode, mode string) ([]*Latt
 			for _, wid := range wids {
 				n := NewLatticeNode(t.lexicon, 0, 0, 0, wid)
 				n.Begin = offset
-				nwi, err := n.GetWordInfo()
-				if err != nil {
-					return newPath, err
-				}
+				nwi := n.GetWordInfo()
 				offset += int(nwi.HeadwordLength)
 				n.End = offset
 				newPath = append(newPath, n)
 			}
 		}
 	}
-	return newPath, nil
+	return newPath
 }
 
 func (t *JapaneseTokenizer) dumpPath(path []*LatticeNode) {

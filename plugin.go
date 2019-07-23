@@ -94,10 +94,7 @@ func ConcatenateNodes(path *[]*LatticeNode, begin int, end int, lattice *Lattice
 	tpath := *path
 	b := tpath[begin].Begin
 	e := tpath[end-1].End
-	bwi, err := tpath[begin].GetWordInfo()
-	if err != nil {
-		return nil, err
-	}
+	bwi := tpath[begin].GetWordInfo()
 	posId := bwi.PosId
 	var (
 		surfaceLen        int
@@ -108,10 +105,7 @@ func ConcatenateNodes(path *[]*LatticeNode, begin int, end int, lattice *Lattice
 	)
 	wilist := make([]*dictionary.WordInfo, len(tpath), len(tpath))
 	for i, n := range tpath {
-		info, err := n.GetWordInfo()
-		if err != nil {
-			return nil, err
-		}
+		info := n.GetWordInfo()
 		wilist[i] = info
 		surfaceLen += len(info.Surface)
 		length += info.HeadwordLength
@@ -175,10 +169,7 @@ func ConcatenateOov(path *[]*LatticeNode, begin int, end int, posId int16, latti
 	)
 	wilist := make([]*dictionary.WordInfo, len(tpath), len(tpath))
 	for i, n := range tpath {
-		info, err := n.GetWordInfo()
-		if err != nil {
-			return nil, err
-		}
+		info := n.GetWordInfo()
 		wilist[i] = info
 		surfaceLen += len(info.Surface)
 		length += info.HeadwordLength
@@ -237,10 +228,7 @@ func GetOOV(p OovProviderPlugin, inputText *InputText, offset int, hasOtherWords
 		return []*LatticeNode{}, err
 	}
 	for _, node := range nodes {
-		wi, err := node.GetWordInfo()
-		if err != nil {
-			return []*LatticeNode{}, err
-		}
+		wi := node.GetWordInfo()
 		node.Begin = offset
 		node.End = offset + int(wi.HeadwordLength)
 	}

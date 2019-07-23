@@ -53,7 +53,7 @@ func TestSettingsJSON_ParseSettingsJSON(t *testing.T) {
 		t.Errorf("fail to parse json: %s", err)
 	}
 
-	bc, err := settings.GetBaseConfig()
+	bc := settings.GetBaseConfig()
 	want := "/usr/local/share/sudachi/system.dic"
 	if bc.SystemDict != want {
 		t.Errorf("invalid result. want = %s, got = %s", want, bc.SystemDict)

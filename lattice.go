@@ -10,6 +10,20 @@ import (
 	"github.com/msnoigrs/gosudachi/dictionary"
 )
 
+const (
+	NullSurface = "(null)"
+)
+
+var UndefinedWordInfo = &dictionary.WordInfo{
+		Surface: NullSurface,
+		HeadwordLength: 0,
+		PosId: -1,
+		NormalizedForm: NullSurface,
+		DictionaryFormWordId: -1,
+		DictionaryForm: NullSurface,
+		ReadingForm: NullSurface,
+	}
+
 type LatticeNode struct {
 	Begin            int
 	End              int
@@ -64,14 +78,14 @@ func (ln *LatticeNode) SetOOV() {
 	ln.IsOov = true
 }
 
-func (ln *LatticeNode) GetWordInfo() (*dictionary.WordInfo, error) {
+func (ln *LatticeNode) GetWordInfo() *dictionary.WordInfo {
 	if !ln.isDefined {
-		return nil, errors.New("this node has no WordInfo")
+		return UndefinedWordInfo
 	}
 	if ln.extraWordInfo != nil {
-		return ln.extraWordInfo, nil
+		return ln.extraWordInfo
 	}
-	return ln.lexicon.GetWordInfo(ln.wordId), nil
+	return ln.lexicon.GetWordInfo(ln.wordId)
 }
 
 func (ln *LatticeNode) SetWordInfo(wordInfo *dictionary.WordInfo) {
@@ -100,19 +114,9 @@ func (ln *LatticeNode) String() string {
 		pos     int16
 	)
 
-	if ln.isDefined {
-		wi, err := ln.GetWordInfo()
-		if err != nil {
-			surface = fmt.Sprintf("%v", err)
-			pos = -1
-		} else {
-			surface = wi.Surface
-			pos = wi.PosId
-		}
-	} else {
-		surface = "(null)"
-		pos = -1
-	}
+	wi := ln.GetWordInfo()
+	surface = wi.Surface
+	pos = wi.PosId
 
 	return fmt.Sprintf("%d %d %s(%d) %d %d %d %d", ln.Begin, ln.End, surface, ln.wordId, pos, ln.leftId, ln.rightId, ln.cost)
 }
@@ -279,23 +283,13 @@ func (l *Lattice) Dump(w io.Writer) {
 			var (
 				surface, pos string
 			)
-			if !rNode.isDefined {
-				surface = "(null)"
-				pos = "BOS/EOS"
+			wi := rNode.GetWordInfo()
+			surface = wi.Surface
+			posId := wi.PosId
+			if posId < 0 {
+				pos = "(null)"
 			} else {
-				wi, err := rNode.GetWordInfo()
-				if err != nil {
-					surface = fmt.Sprintf("%v", err)
-					pos = "(null)"
-				} else {
-					surface = wi.Surface
-					posId := wi.PosId
-					if posId < 0 {
-						pos = "(null)"
-					} else {
-						pos = strings.Join(l.grammar.GetPartOfSpeechString(posId), ",")
-					}
-				}
+				pos = strings.Join(l.grammar.GetPartOfSpeechString(posId), ",")
 			}
 
 			fmt.Fprintf(w, "%d: %d %d %s(%d) %s %d %d %d: ", index, rNode.Begin, rNode.End, surface, rNode.wordId, pos, rNode.leftId, rNode.rightId, rNode.cost)

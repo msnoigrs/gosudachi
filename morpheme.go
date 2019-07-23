@@ -29,43 +29,28 @@ func (m *Morpheme) Surface() string {
 	return m.list.GetSurface(m.index)
 }
 
-func (m *Morpheme) PartOfSpeech() ([]string, error) {
-	wi, err := m.GetWordInfo()
-	if err != nil {
-		return []string{}, err
-	}
-	return m.list.grammar.GetPartOfSpeechString(wi.PosId), nil
+func (m *Morpheme) PartOfSpeech() []string {
+	wi := m.GetWordInfo()
+	return m.list.grammar.GetPartOfSpeechString(wi.PosId)
 }
 
-func (m *Morpheme) DictionaryForm() (string, error) {
-	wi, err := m.GetWordInfo()
-	if err != nil {
-		return "", err
-	}
-	return wi.DictionaryForm, nil
+func (m *Morpheme) DictionaryForm() string {
+	wi := m.GetWordInfo()
+	return wi.DictionaryForm
 }
 
-func (m *Morpheme) NormalizedForm() (string, error) {
-	wi, err := m.GetWordInfo()
-	if err != nil {
-		return "", err
-	}
-	return wi.NormalizedForm, nil
+func (m *Morpheme) NormalizedForm() string {
+	wi := m.GetWordInfo()
+	return wi.NormalizedForm
 }
 
-func (m *Morpheme) ReadingForm() (string, error) {
-	wi, err := m.GetWordInfo()
-	if err != nil {
-		return "", err
-	}
-	return wi.ReadingForm, nil
+func (m *Morpheme) ReadingForm() string {
+	wi := m.GetWordInfo()
+	return wi.ReadingForm
 }
 
-func (m *Morpheme) Split(mode string) (*MorphemeList, error) {
-	wi, err := m.GetWordInfo()
-	if err != nil {
-		return nil, nil
-	}
+func (m *Morpheme) Split(mode string) *MorphemeList {
+	wi := m.GetWordInfo()
 	return m.list.Split(mode, m.index, wi)
 }
 
@@ -81,15 +66,12 @@ func (m *Morpheme) GetDictionaryId() int {
 	return m.list.GetDictionaryId(m.index)
 }
 
-func (m *Morpheme) GetWordInfo() (*dictionary.WordInfo, error) {
+func (m *Morpheme) GetWordInfo() *dictionary.WordInfo {
 	if m.wordInfo == nil {
-		wordInfo, err := m.list.GetWordInfo(m.index)
-		if err != nil {
-			return nil, err
-		}
+		wordInfo := m.list.GetWordInfo(m.index)
 		m.wordInfo = wordInfo
 	}
-	return m.wordInfo, nil
+	return m.wordInfo
 }
 
 type MorphemeList struct {
@@ -129,11 +111,11 @@ func (l *MorphemeList) GetSurface(index int) string {
 	return string([]byte(l.inputText.OriginalText)[node.Begin:node.End])
 }
 
-func (l *MorphemeList) GetWordInfo(index int) (*dictionary.WordInfo, error) {
+func (l *MorphemeList) GetWordInfo(index int) *dictionary.WordInfo {
 	return l.path[index].GetWordInfo()
 }
 
-func (l *MorphemeList) Split(mode string, index int, wi *dictionary.WordInfo) (*MorphemeList, error) {
+func (l *MorphemeList) Split(mode string, index int, wi *dictionary.WordInfo) *MorphemeList {
 	var wordIds []int32
 	switch mode {
 	case "A":
@@ -141,10 +123,10 @@ func (l *MorphemeList) Split(mode string, index int, wi *dictionary.WordInfo) (*
 	case "B":
 		wordIds = wi.BUnitSplit
 	default:
-		return NewMorphemeList(l.inputText, l.grammar, l.lexicon, []*LatticeNode{l.path[index]}), nil
+		return NewMorphemeList(l.inputText, l.grammar, l.lexicon, []*LatticeNode{l.path[index]})
 	}
 	if len(wordIds) == 0 || len(wordIds) == 1 {
-		return NewMorphemeList(l.inputText, l.grammar, l.lexicon, []*LatticeNode{l.path[index]}), nil
+		return NewMorphemeList(l.inputText, l.grammar, l.lexicon, []*LatticeNode{l.path[index]})
 	}
 
 	offset := l.path[index].Begin
@@ -152,16 +134,13 @@ func (l *MorphemeList) Split(mode string, index int, wi *dictionary.WordInfo) (*
 	for i, wid := range wordIds {
 		n := NewLatticeNode(l.lexicon, 0, 0, 0, wid)
 		n.Begin = offset
-		wi, err := n.GetWordInfo()
-		if err != nil {
-			return nil, err
-		}
+		wi := n.GetWordInfo()
 		offset += int(wi.HeadwordLength)
 		n.End = offset
 		nodes[i] = n
 	}
 
-	return NewMorphemeList(l.inputText, l.grammar, l.lexicon, nodes), nil
+	return NewMorphemeList(l.inputText, l.grammar, l.lexicon, nodes)
 }
 
 func (l *MorphemeList) IsOOV(index int) bool {

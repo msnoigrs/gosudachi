@@ -45,10 +45,7 @@ func (p *JoinNumericPlugin) SetUp(grammar *dictionary.Grammar) error {
 
 func (p *JoinNumericPlugin) concatNodes(path *[]*LatticeNode, begin int, end int, lattice *Lattice, parser *numericParser) error {
 	tpath := *path
-	wi, err := tpath[begin].GetWordInfo()
-	if err != nil {
-		return err
-	}
+	wi := tpath[begin].GetWordInfo()
 	if wi.PosId != p.numericPosId {
 		return nil
 	}
@@ -81,10 +78,7 @@ func (p *JoinNumericPlugin) Rewrite(text *InputText, path *[]*LatticeNode, latti
 	for i := 0; i < len(*path); i++ {
 		node := (*path)[i]
 		types := GetCharCategoryTypes(text, node)
-		wi, err := node.GetWordInfo()
-		if err != nil {
-			return fmt.Errorf("JoinNumericPlugin: %s", err)
-		}
+		wi := node.GetWordInfo()
 		s := wi.NormalizedForm
 		if (types&dictionary.NUMERIC) == dictionary.NUMERIC ||
 			(types&dictionary.KANJINUMERIC) == dictionary.KANJINUMERIC ||
@@ -120,10 +114,7 @@ func (p *JoinNumericPlugin) Rewrite(text *InputText, path *[]*LatticeNode, latti
 					}
 					i = beginIndex + 1
 				} else {
-					wi, err := (*path)[i-1].GetWordInfo()
-					if err != nil {
-						return fmt.Errorf("JoinNumericPlugin: %s", err)
-					}
+					wi := (*path)[i-1].GetWordInfo()
 					ss := wi.NormalizedForm
 					if (parser.errorState == errComma && ss == ",") ||
 						(parser.errorState == errPoint && ss == ".") {
@@ -149,10 +140,7 @@ func (p *JoinNumericPlugin) Rewrite(text *InputText, path *[]*LatticeNode, latti
 		if parser.done() {
 			p.concatNodes(path, beginIndex, len(*path), lattice, parser)
 		} else {
-			wi, err := (*path)[len(*path)-1].GetWordInfo()
-			if err != nil {
-				return fmt.Errorf("JoinNumericPlugin: %s", err)
-			}
+			wi := (*path)[len(*path)-1].GetWordInfo()
 			ss := wi.NormalizedForm
 			if (parser.errorState == errComma && ss == ",") ||
 				(parser.errorState == errPoint && ss == ".") {

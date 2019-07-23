@@ -228,9 +228,13 @@ func (s *lineScanner) Text() string {
 func runFromReader(tokenizer *gosudachi.JapaneseTokenizer, mode string, input io.Reader, output io.Writer, printAll bool, ignoreError bool) error {
 	s := newLineScanner(input)
 	for s.Scan() {
-		err := run(tokenizer, mode, s.Text(), output, printAll, ignoreError)
+		err := run(tokenizer, mode, s.Text(), output, printAll)
 		if err != nil {
-			return err
+			if ignoreError {
+				fmt.Fprintln(os.Stderr, err)
+			} else {
+				return err
+			}
 		}
 	}
 	if err := s.Err(); err != nil {
@@ -239,7 +243,7 @@ func runFromReader(tokenizer *gosudachi.JapaneseTokenizer, mode string, input io
 	return nil
 }
 
-func run(tokenizer *gosudachi.JapaneseTokenizer, mode string, text string, output io.Writer, printAll bool, ignoreError bool) error {
+func run(tokenizer *gosudachi.JapaneseTokenizer, mode string, text string, output io.Writer, printAll bool) error {
 	ms, err := tokenizer.Tokenize(mode, text)
 	if err != nil {
 		return err
@@ -247,32 +251,15 @@ func run(tokenizer *gosudachi.JapaneseTokenizer, mode string, text string, outpu
 	for i := 0; i < ms.Length(); i++ {
 		m := ms.Get(i)
 
-		var pos []string
-		var normalizedForm string
-		pos, err = m.PartOfSpeech()
-		if err != nil {
-			if ignoreError {
-				pos = append(pos, fmt.Sprintf("%v", err))
-				normalizedForm = ""
-			} else {
-				return err
-			}
-		} else {
-			normalizedForm, _ = m.NormalizedForm()
-		}
-
-		fmt.Fprintf(output, "%s\t%s\t%s", m.Surface(), strings.Join(pos, ","), normalizedForm)
+		fmt.Fprintf(output, "%s\t%s\t%s",
+			m.Surface(),
+			strings.Join(m.PartOfSpeech(), ","),
+			m.NormalizedForm())
 		if printAll {
-			var dictionaryForm string
-			var readingForm string
-			if err != nil {
-				dictionaryForm = ""
-				readingForm = ""
-			} else {
-				dictionaryForm, _ = m.DictionaryForm()
-				readingForm, _ = m.ReadingForm()
-			}
-			fmt.Fprintf(output, "\t%s\t%s\t%d", dictionaryForm, readingForm, m.GetDictionaryId())
+			fmt.Fprintf(output, "\t%s\t%s\t%d",
+				m.DictionaryForm(),
+				m.ReadingForm(),
+				m.GetDictionaryId())
 			if m.IsOOV() {
 				fmt.Fprintf(output, "\t(OOV)")
 			}
