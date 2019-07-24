@@ -29,11 +29,11 @@ const (
 )
 
 type wordEntry struct {
-	Headword string
-	Parameters [3]int16
-	WordInfo *WordInfo
-	AUnitSplitString string
-	BUnitSplitString string
+	Headword            string
+	Parameters          [3]int16
+	WordInfo            *WordInfo
+	AUnitSplitString    string
+	BUnitSplitString    string
 	WordStructureString string
 }
 
@@ -319,13 +319,13 @@ func (dicbuilder *DictionaryBuilder) BuildLexicon(store PosIdStore, input io.Rea
 		// part of speech
 		posId := store.GetPosId(cols[5], cols[6], cols[7], cols[8], cols[9], cols[10])
 
-		if strings.Count(cols[15], "/") + 1 > ArrayMaxLength {
+		if strings.Count(cols[15], "/")+1 > ArrayMaxLength {
 			return fmt.Errorf("too many units: columns 15 at line %d", r.numLine)
 		}
-		if strings.Count(cols[16], "/") + 1 > ArrayMaxLength {
+		if strings.Count(cols[16], "/")+1 > ArrayMaxLength {
 			return fmt.Errorf("too many units: columns 16 at line %d", r.numLine)
 		}
-		if strings.Count(cols[17], "/") + 1 > ArrayMaxLength {
+		if strings.Count(cols[17], "/")+1 > ArrayMaxLength {
 			return fmt.Errorf("too many units: columns 17 at line %d", r.numLine)
 		}
 		if cols[14] == "A" && (cols[15] != "*" || cols[16] != "*") {
@@ -347,13 +347,13 @@ func (dicbuilder *DictionaryBuilder) BuildLexicon(store PosIdStore, input io.Rea
 		}
 
 		entry.WordInfo = &WordInfo{
-			Surface: cols[4], // headword
-			HeadwordLength: int16(len(cols[0])),
-			PosId: posId,
-			NormalizedForm: cols[12],      // normalizedForm
+			Surface:              cols[4], // headword
+			HeadwordLength:       int16(len(cols[0])),
+			PosId:                posId,
+			NormalizedForm:       cols[12],      // normalizedForm
 			DictionaryFormWordId: dicFormWordId, // dictionaryFormWordId
-			DictionaryForm: "",            // dummy
-			ReadingForm: cols[11],      // readingForm
+			DictionaryForm:       "",            // dummy
+			ReadingForm:          cols[11],      // readingForm
 		}
 
 		if entry.Headword != "" {

@@ -10,75 +10,9 @@ import (
 	"path/filepath"
 
 	"github.com/msnoigrs/gosudachi/dictionary"
-	"github.com/msnoigrs/gosudachi/internal/mmap"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
-
-type mmapFrom struct {
-	header  *dictionary.DictionaryHeader
-	grammar *dictionary.Grammar
-	lexicon *dictionary.DoubleArrayLexicon
-	fd      *os.File
-	m       []byte
-}
-
-func (mg *mmapFrom) mclose() {
-	if mg.header == nil {
-		return
-	}
-	mmap.Munmap(mg.m)
-	mg.fd.Close()
-	mg.header = nil
-}
-
-func readDic(dictfile string, utf16string bool) (*mmapFrom, error) {
-	dictfd, err := os.OpenFile(dictfile, os.O_RDONLY, 0644)
-	if err != nil {
-		return nil, err
-	}
-
-	finfo, err := dictfd.Stat()
-	if err != nil {
-		dictfd.Close()
-		return nil, err
-	}
-
-	bytebuffer, err := mmap.Mmap(dictfd, false, 0, finfo.Size())
-	if err != nil {
-		dictfd.Close()
-		return nil, err
-	}
-
-	offset := 0
-	header := dictionary.ParseDictionaryHeader(bytebuffer, 0)
-	if err != nil {
-		mmap.Munmap(bytebuffer)
-		dictfd.Close()
-		return nil, err
-	}
-	offset += dictionary.HeaderStorageSize
-
-	var grammar *dictionary.Grammar
-	if header.Version == dictionary.SystemDictVersion {
-		grammar = dictionary.NewGrammar(bytebuffer, offset, utf16string)
-		offset += grammar.StorageSize
-	} else if header.Version != dictionary.UserDictVersion {
-		mmap.Munmap(bytebuffer)
-		dictfd.Close()
-		return nil, fmt.Errorf("file is invalid: %s", dictfile)
-	}
-
-	lexicon := dictionary.NewDoubleArrayLexicon(bytebuffer, offset, utf16string)
-
-	return &mmapFrom{
-		header:  header,
-		grammar: grammar,
-		lexicon: lexicon,
-		fd:      dictfd,
-		m:       bytebuffer,
-	}, nil
-}
 
 func main() {
 	flag.Usage = func() {
@@ -128,12 +62,13 @@ Options:
 	bufiooutput := bufio.NewWriter(outputfd)
 
 	args := flag.Args()
-	fromdic, err := readDic(args[0], !utf16string)
+	fromdic, err := dictionary.NewBinaryDictionary(args[0], !utf16string)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	}
+	defer fromdic.Close()
 
-	hb, err := fromdic.header.ToBytes()
+	hb, err := fromdic.Header.ToBytes()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
@@ -149,10 +84,10 @@ Options:
 
 	var n64 int64
 	p := message.NewPrinter(language.English)
-	if fromdic.grammar != nil {
+	if fromdic.Grammar != nil {
 		fmt.Fprint(os.Stderr, "writting the POS table...")
 		buffer := bytes.NewBuffer([]byte{})
-		err = fromdic.grammar.WritePOSTableTo(buffer, utf16string)
+		err = fromdic.Grammar.WritePOSTableTo(buffer, utf16string)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s", err)
 			os.Exit(1)
@@ -167,7 +102,7 @@ Options:
 		offset += n64
 
 		fmt.Fprint(os.Stderr, "writting the connection matrix...")
-		n, err = fromdic.grammar.WriteConnMatrixTo(bufiooutput)
+		n, err = fromdic.Grammar.WriteConnMatrixTo(bufiooutput)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s", err)
 			os.Exit(1)
@@ -177,7 +112,7 @@ Options:
 	}
 
 	fmt.Fprint(os.Stderr, "writting the trie...")
-	n, err = fromdic.lexicon.WriteTrieTo(bufiooutput)
+	n, err = fromdic.Lexicon.WriteTrieTo(bufiooutput)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
@@ -186,7 +121,7 @@ Options:
 	offset += int64(n)
 
 	fmt.Fprint(os.Stderr, "writting the word-ID table...")
-	n, err = fromdic.lexicon.WriteWordIdTableTo(bufiooutput)
+	n, err = fromdic.Lexicon.WriteWordIdTableTo(bufiooutput)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
@@ -195,7 +130,7 @@ Options:
 	offset += int64(n)
 
 	fmt.Fprint(os.Stderr, "writting the word parameters...")
-	n, err = fromdic.lexicon.WriteWordParamsTo(bufiooutput)
+	n, err = fromdic.Lexicon.WriteWordParamsTo(bufiooutput)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
@@ -210,7 +145,7 @@ Options:
 	}
 
 	fmt.Fprint(os.Stderr, "writting the wordInfos...")
-	offsetlen := int64(4 * fromdic.lexicon.Size())
+	offsetlen := int64(4 * fromdic.Lexicon.Size())
 	_, err = outputfd.Seek(offsetlen, io.SeekCurrent)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
@@ -218,7 +153,7 @@ Options:
 	}
 	bufiooutput = bufio.NewWriter(outputfd)
 
-	n, offsets, err := fromdic.lexicon.WriteWordInfos(bufiooutput, offset, offsetlen, utf16string)
+	n, offsets, err := fromdic.Lexicon.WriteWordInfos(bufiooutput, offset, offsetlen, utf16string)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)

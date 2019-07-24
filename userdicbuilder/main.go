@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/msnoigrs/gosudachi/dictionary"
-	"github.com/msnoigrs/gosudachi/internal/mmap"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
@@ -53,37 +52,12 @@ Options:
 		os.Exit(1)
 	}
 
-	sysdic, err := os.OpenFile(systemdict, os.O_RDONLY, 0644)
+	sdic, err := dictionary.ReadSystemDictionary(systemdict, utf16string)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
 	}
-	defer sysdic.Close()
-
-	finfo, err := sysdic.Stat()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
-		os.Exit(1)
-	}
-
-	bytebuffer, err := mmap.Mmap(sysdic, false, 0, finfo.Size())
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
-		os.Exit(1)
-	}
-	defer mmap.Munmap(bytebuffer)
-
-	sysdh := dictionary.ParseDictionaryHeader(bytebuffer, 0)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
-		os.Exit(1)
-	}
-	if sysdh.Version != dictionary.SystemDictVersion {
-		fmt.Fprintf(os.Stderr, "Error: invalid system dictionary: %s", systemdict)
-		os.Exit(1)
-	}
-
-	grammar := dictionary.NewGrammar(bytebuffer, dictionary.HeaderStorageSize, utf16string)
+	defer sdic.Close()
 
 	outputWriter, err := os.OpenFile(outputpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
@@ -108,7 +82,7 @@ Options:
 
 	fmt.Fprint(os.Stderr, "reading the source file...")
 	for _, lexiconpath := range flag.Args() {
-		err := build(dicbuilder, grammar, lexiconpath)
+		err := build(dicbuilder, sdic.Grammar, lexiconpath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s", err, lexiconpath)
 			os.Exit(1)
@@ -117,7 +91,7 @@ Options:
 	p := message.NewPrinter(language.English)
 	p.Fprintf(os.Stderr, " %d words\n", dicbuilder.EntrySize())
 
-	err = dicbuilder.WriteLexicon(outputWriter)
+	err = dicbuilder.WriteLexicon(outputWriter, sdic.Grammar)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)

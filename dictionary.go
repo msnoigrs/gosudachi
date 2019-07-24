@@ -7,7 +7,6 @@ import (
 
 	"github.com/msnoigrs/gosudachi/data"
 	"github.com/msnoigrs/gosudachi/dictionary"
-	"github.com/msnoigrs/gosudachi/internal/mmap"
 )
 
 const (
@@ -17,46 +16,13 @@ const (
 const maxcost = int(int16(^uint16(0) >> 1))
 const mincost = int(-maxcost - 1)
 
-type dicFile struct {
-	fd   *os.File
-	fmap []byte
-}
-
-func newDicFile(filename string) (*dicFile, error) {
-	fd, err := os.OpenFile(filename, os.O_RDONLY, 0644)
-	if err != nil {
-		return nil, err
-	}
-
-	finfo, err := fd.Stat()
-	if err != nil {
-		fd.Close()
-		return nil, err
-	}
-	fmap, err := mmap.Mmap(fd, false, 0, finfo.Size())
-	if err != nil {
-		fd.Close()
-		return nil, err
-	}
-	return &dicFile{
-		fd:   fd,
-		fmap: fmap,
-	}, nil
-}
-
-func (d *dicFile) munmap() error {
-	err := mmap.Munmap(d.fmap)
-	err = d.fd.Close()
-	return err
-}
-
 type JapaneseDictionary struct {
 	grammar            *dictionary.Grammar
 	lexicon            *dictionary.LexiconSet
 	inputTextPlugins   []InputTextPlugin
 	oovProviderPlugins []OovProviderPlugin
 	pathRewritePlugins []PathRewritePlugin
-	buffers            []*dicFile
+	dictionaries       []*dictionary.BinaryDictionary
 }
 
 func NewJapaneseDictionary(config *BaseConfig, inputTextPlugins []InputTextPlugin, oovProviderPlugins []OovProviderPlugin, pathRewritePlugins []PathRewritePlugin, editConnectionCostPlugins []EditConnectionCostPlugin) (*JapaneseDictionary, error) {
@@ -120,29 +86,14 @@ func NewJapaneseDictionary(config *BaseConfig, inputTextPlugins []InputTextPlugi
 }
 
 func (d *JapaneseDictionary) ReadSystemDictionary(filename string, utf16string bool) error {
-	df, err := newDicFile(filename)
+	dict, err := dictionary.ReadSystemDictionary(filename, utf16string)
 	if err != nil {
 		return err
 	}
 
-	offset := 0
-	header := dictionary.ParseDictionaryHeader(df.fmap, offset)
-	if header == nil {
-		df.munmap()
-		return fmt.Errorf("invalid header: %s", filename)
-	}
-	if header.Version != dictionary.SystemDictVersion {
-		df.munmap()
-		return fmt.Errorf("invalid system dictionary: %s", filename)
-	}
-	offset += dictionary.HeaderStorageSize
-
-	d.grammar = dictionary.NewGrammar(df.fmap, offset, utf16string)
-	offset += d.grammar.StorageSize
-
-	d.lexicon = dictionary.NewLexiconSet(dictionary.NewDoubleArrayLexicon(df.fmap, offset, utf16string))
-
-	d.buffers = append(d.buffers, df)
+	d.dictionaries = append(d.dictionaries, dict)
+	d.grammar = dict.Grammar
+	d.lexicon = dictionary.NewLexiconSet(dict.Lexicon)
 	return nil
 }
 
@@ -151,24 +102,14 @@ func (d *JapaneseDictionary) ReadUserDictionary(filename string, utf16string boo
 		return fmt.Errorf("too many dictionaries")
 	}
 
-	df, err := newDicFile(filename)
+	dict, err := dictionary.ReadUserDictionary(filename, utf16string)
 	if err != nil {
 		return err
 	}
 
-	offset := 0
-	header := dictionary.ParseDictionaryHeader(df.fmap, offset)
-	if header == nil {
-		df.munmap()
-		return fmt.Errorf("invalid header: %s", filename)
-	}
-	if header.Version != dictionary.UserDictVersion {
-		df.munmap()
-		return fmt.Errorf("invalid user dictionary: %s", filename)
-	}
-	offset += dictionary.HeaderStorageSize
+	d.dictionaries = append(d.dictionaries, dict)
 
-	userLexicon := dictionary.NewDoubleArrayLexicon(df.fmap, offset, utf16string)
+	userLexicon := dict.Lexicon
 	tokenizer := NewJapaneseTokenizer(
 		d.grammar,
 		d.lexicon,
@@ -223,10 +164,10 @@ func (d *JapaneseDictionary) ReadCharacterDefinition(charDef string) error {
 func (d *JapaneseDictionary) Close() {
 	d.grammar = nil
 	d.lexicon = nil
-	for _, df := range d.buffers {
-		df.munmap()
+	for _, dict := range d.dictionaries {
+		dict.Close()
 	}
-	d.buffers = d.buffers[:0]
+	d.dictionaries = d.dictionaries[:0]
 }
 
 func (d *JapaneseDictionary) Create() *JapaneseTokenizer {
