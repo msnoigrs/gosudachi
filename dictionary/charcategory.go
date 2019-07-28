@@ -98,7 +98,7 @@ func NewCharacterCategory() *CharacterCategory {
 	return &CharacterCategory{}
 }
 
-func (cc CharacterCategory) GetCategoryTypes(codePoint rune) uint32 {
+func (cc *CharacterCategory) GetCategoryTypes(codePoint rune) uint32 {
 	var categories uint32
 	for _, cr := range cc.rangeList {
 		if cr.contains(codePoint) {
@@ -112,7 +112,7 @@ func (cc CharacterCategory) GetCategoryTypes(codePoint rune) uint32 {
 	return categories
 }
 
-func (cc CharacterCategory) ReadCharacterDefinition(charDefReader io.Reader) error {
+func (cc *CharacterCategory) ReadCharacterDefinition(charDefReader io.Reader) error {
 	r := lnreader.NewLineNumberReader(charDefReader)
 	for {
 		line, err := r.ReadLine()
@@ -184,11 +184,11 @@ func decodeHexStrToInt32(s string) (int32, error) {
 	var ret int32
 	switch n {
 	case 4:
-		ret = int32(dst[0])*33554432 + int32(dst[1])*131072 + int32(dst[2])*512 + int32(dst[3])
+		ret = int32(dst[0])*16777216 + int32(dst[1])*65536 + int32(dst[2])*256 + int32(dst[3])
 	case 3:
-		ret = int32(dst[0])*131072 + int32(dst[1])*512 + int32(dst[2])
+		ret = int32(dst[0])*65536 + int32(dst[1])*256 + int32(dst[2])
 	case 2:
-		ret = int32(dst[0])*512 + int32(dst[1])
+		ret = int32(dst[0])*256 + int32(dst[1])
 	case 1:
 		ret = int32(dst[0])
 	}
