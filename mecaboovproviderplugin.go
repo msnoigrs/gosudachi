@@ -169,12 +169,12 @@ func (p *MeCabOovProviderPlugin) readCharacterProperty(charDef string) error {
 		if lnreader.IsSkipLine(line) {
 			continue
 		}
-		cols := strings.Fields(string(line))
-		if len(cols) < 2 {
-			return fmt.Errorf("char.def: invalid format at line %d", r.NumLine)
-		}
-		if strings.HasPrefix(cols[0], "0x") {
+		if len(line) > 2 && line[0] == '0' && line[1] == 'x' {
 			continue
+		}
+		cols := strings.Fields(string(line))
+		if len(cols) < 4 {
+			return fmt.Errorf("char.def: invalid format at line %d", r.NumLine)
 		}
 		catType, err := dictionary.GetCategoryType(cols[0])
 		if err != nil {
