@@ -273,7 +273,7 @@ func run(tokenizer *gosudachi.JapaneseTokenizer, mode string, text string, outpu
 func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `Usage of %s:
-	%s [-r file] [-m A|B|C] [-o file] [-p dir] [-j] [file ...]
+	%s [-r file|-s jsonstring] [-m A|B|C] [-o file] [-p dir] [-j] [file ...]
 
 Options:
 `, os.Args[0], os.Args[0])
@@ -281,16 +281,18 @@ Options:
 	}
 
 	var (
-		settingfile  string
-		mode         string
-		resourcesdir string
-		outputfile   string
-		printall     bool
-		ignoreerr    bool
-		debugmode    bool
-		utf16string  bool
+		settingfile   string
+		mergesettings string
+		mode          string
+		resourcesdir  string
+		outputfile    string
+		printall      bool
+		ignoreerr     bool
+		debugmode     bool
+		utf16string   bool
 	)
-	flag.StringVar(&settingfile, "r", "", "read settings from file")
+	flag.StringVar(&settingfile, "r", "", "read settings from file (overrides -s)")
+	flag.StringVar(&mergesettings, "s", "", "additional settings (overrides -r)")
 	flag.StringVar(&mode, "m", "C", "mode of splitting")
 	flag.StringVar(&resourcesdir, "p", "", "root directory of resources")
 	flag.StringVar(&outputfile, "o", "", "output to file")
@@ -333,7 +335,7 @@ Options:
 		output = os.Stdout
 	}
 
-	settings, pluginmaker, err := parseSettings(resourcesdir, settingfile)
+	settings, pluginmaker, err := parseSettings(resourcesdir, settingfile, mergesettings)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fail to parse settings: %s\n", err)
 		os.Exit(1)
@@ -405,7 +407,7 @@ Options:
 	}
 }
 
-func parseSettings(basePath string, settingfile string) (gosudachi.Settings, gosudachi.PluginMaker, error) {
+func parseSettings(basePath string, settingfile string, mergeString string) (gosudachi.Settings, gosudachi.PluginMaker, error) {
 	settings := gosudachi.NewSettingsJSON()
 
 	var settingsreader io.Reader
@@ -436,6 +438,13 @@ func parseSettings(basePath string, settingfile string) (gosudachi.Settings, gos
 	err := settings.ParseSettingsJSON(basePath, settingsreader)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if settingfile == "" && mergeString != "" {
+		err = settings.ParseSettingsJSON(basePath, strings.NewReader(mergeString))
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	return settings, settings, nil
 }

@@ -42,9 +42,9 @@ func (settings *SettingsJSON) ParseSettingsJSON(defpath string, reader io.Reader
 	if err != nil {
 		return err
 	}
-	if internalBaseConfig.Path == nil {
+	if internalBaseConfig.Path == nil && settings.path != "" {
 		settings.path = defpath
-	} else {
+	} else if internalBaseConfig.Path != nil {
 		settings.path = *internalBaseConfig.Path
 	}
 	if internalBaseConfig.SystemDict != nil {
