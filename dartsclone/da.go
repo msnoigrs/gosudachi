@@ -224,6 +224,45 @@ func (it *Iterator) getNext() (int, int) {
 	return -1, 0
 }
 
+type TraverseResult struct {
+	Result       int
+	Offset       int
+	NodePosition int
+}
+
+func (da *DoubleArray) Traverse(key []byte, offset int, length int, nodePosition int) *TraverseResult {
+	nodePos := uint32(nodePosition)
+	id := nodePos
+	u := daunit(da.array[0])
+
+	for i := offset; i < length; i++ {
+		k := key[i]
+		id ^= u.offset() ^ uint32(k)
+		u = daunit(da.array[int(id)])
+		if u.label() != k {
+			return &TraverseResult{
+				-2,
+				i,
+				int(nodePos),
+			}
+		}
+		nodePos = id
+	}
+	if !u.hasLeaf() {
+		return &TraverseResult{
+			-1,
+			length,
+			int(nodePos),
+		}
+	}
+	u = daunit(da.array[int(nodePos^u.offset())])
+	return &TraverseResult{
+		u.value(),
+		length,
+		int(nodePos),
+	}
+}
+
 func asUInt32Array(data []byte) []uint32 {
 	var sl = struct {
 		addr uintptr
