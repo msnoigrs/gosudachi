@@ -26,6 +26,9 @@ func PrintDictionary(filename string, utf16string bool, systemDict *BinaryDictio
 		return errors.New("the system dictionary is not specified")
 	} else {
 		grammar = systemDict.Grammar
+		if dic.Header.Version == UserDictVersion2 {
+			grammar.AddPosList(dic.Grammar)
+		}
 	}
 
 	possize := grammar.GetPartOfSpeechSize()
@@ -115,7 +118,7 @@ func PrintHeader(dictfile string, output io.Writer) error {
 	switch dh.Version {
 	case SystemDictVersion:
 		fmt.Fprintln(output, "type: system dictionary")
-	case UserDictVersion:
+	case UserDictVersion, UserDictVersion2:
 		fmt.Fprintln(output, "type: user dictionary")
 	default:
 		fmt.Fprintln(output, "invalid file")

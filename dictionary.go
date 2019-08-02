@@ -130,7 +130,8 @@ func (d *JapaneseDictionary) ReadUserDictionary(filename string, utf16string boo
 		}
 		return int16(cost), nil
 	})
-	d.lexicon.Add(userLexicon)
+	d.lexicon.Add(userLexicon, int32(d.grammar.GetPartOfSpeechSize()))
+	d.grammar.AddPosList(dict.Grammar)
 	return nil
 }
 

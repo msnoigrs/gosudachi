@@ -39,6 +39,7 @@ type wordEntry struct {
 
 type PosIdStore interface {
 	GetPosId(posstrings ...string) int16
+	GetPartOfSpeechSize() int
 }
 
 type PosTable struct {
@@ -61,9 +62,39 @@ func (pt *PosTable) GetPosId(posstrings ...string) int16 {
 	return pt.getId(strings.Join(posstrings, ","))
 }
 
+func (pt *PosTable) GetPartOfSpeechSize() int {
+	return len(pt.table)
+}
+
 func NewPosTable() *PosTable {
 	return &PosTable{
 		contains: map[string]int16{},
+	}
+}
+
+type PosTableUser struct {
+	PosTable
+	baseStore PosIdStore
+}
+
+func (pt *PosTableUser) getId(s string) int16 {
+	posId := pt.baseStore.GetPosId(s)
+	if posId < 0 {
+		posId = pt.PosTable.getId(s) + int16(pt.baseStore.GetPartOfSpeechSize())
+	}
+	return posId
+}
+
+func (pt *PosTableUser) GetPosId(posstrings ...string) int16 {
+	return pt.getId(strings.Join(posstrings, ","))
+}
+
+func NewPosTableUser(base PosIdStore) *PosTableUser {
+	return &PosTableUser{
+		PosTable: PosTable{
+			contains: map[string]int16{},
+		},
+		baseStore: base,
 	}
 }
 
@@ -448,20 +479,9 @@ func (dicbuilder *DictionaryBuilder) WriteGrammar(postable *PosTable, input io.R
 
 	fmt.Fprint(os.Stderr, "writing the POS table...")
 
-	// convertPOSTable
-	err := binary.Write(dicbuilder.buffer, binary.LittleEndian, uint16(len(postable.table)))
+	err := dicbuilder.convertPOSTable(postable)
 	if err != nil {
 		return err
-	}
-
-	for _, pos := range postable.table {
-		ts := strings.Split(pos, ",")
-		for _, t := range ts {
-			err := dicbuilder.writeString(t)
-			if err != nil {
-				return err
-			}
-		}
 	}
 	n, err := dicbuilder.buffer.WriteTo(bwriter)
 	if err != nil {
@@ -553,6 +573,70 @@ func (dicbuilder *DictionaryBuilder) WriteGrammar(postable *PosTable, input io.R
 	err = bwriter.Flush()
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (dicbuilder *DictionaryBuilder) WriteGrammarUser(postable *PosTable, writer io.Writer) error {
+	bwriter := bufio.NewWriter(writer)
+
+	fmt.Fprint(os.Stderr, "writing the POS table...")
+
+	err := dicbuilder.convertPOSTable(postable)
+	if err != nil {
+		return err
+	}
+	n, err := dicbuilder.buffer.WriteTo(bwriter)
+	if err != nil {
+		return err
+	}
+	dicbuilder.position += n
+	p := message.NewPrinter(language.English)
+	p.Fprintf(os.Stderr, " %d bytes\n", n)
+	dicbuilder.buffer.Reset()
+
+	fmt.Fprint(os.Stderr, "writing the connection matrix...")
+
+	err = binary.Write(dicbuilder.buffer, binary.LittleEndian, uint16(0))
+	if err != nil {
+		return err
+	}
+	err = binary.Write(dicbuilder.buffer, binary.LittleEndian, uint16(0))
+	if err != nil {
+		return err
+	}
+
+	n, err = dicbuilder.buffer.WriteTo(bwriter)
+	if err != nil {
+		return err
+	}
+	dicbuilder.position += 4
+	fmt.Fprint(os.Stderr, " 4 bytes\n")
+	dicbuilder.buffer.Reset()
+
+	err = bwriter.Flush()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (dicbuilder *DictionaryBuilder) convertPOSTable(postable *PosTable) error {
+	err := binary.Write(dicbuilder.buffer, binary.LittleEndian, uint16(len(postable.table)))
+	if err != nil {
+		return err
+	}
+
+	for _, pos := range postable.table {
+		ts := strings.Split(pos, ",")
+		for _, t := range ts {
+			err := dicbuilder.writeString(t)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

@@ -39,7 +39,7 @@ func NewBinaryDictionary(filename string, utf16string bool) (*BinaryDictionary, 
 
 	offset += HeaderStorageSize
 	var grammar *Grammar
-	if header.Version == SystemDictVersion {
+	if header.Version == SystemDictVersion || header.Version == UserDictVersion2 {
 		grammar = NewGrammar(fmap, offset, utf16string)
 		offset += grammar.StorageSize
 	} else if header.Version != UserDictVersion {
@@ -76,7 +76,7 @@ func ReadUserDictionary(filename string, utf16string bool) (*BinaryDictionary, e
 	if err != nil {
 		return nil, err
 	}
-	if dict.Header.Version != UserDictVersion {
+	if !IsUserDictionary(dict.Header.Version) {
 		_ = dict.Close()
 		return nil, fmt.Errorf("invalid user dictionary: %s", filename)
 	}

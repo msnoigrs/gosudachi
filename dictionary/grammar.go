@@ -67,6 +67,10 @@ func NewGrammar(bytebuffer []byte, offset int, utf16string bool) *Grammar {
 	}
 }
 
+func (g *Grammar) AddPosList(fromg *Grammar) {
+	g.posList = append(g.posList, fromg.posList...)
+}
+
 func (g *Grammar) GetPartOfSpeechSize() int {
 	return len(g.posList)
 }
@@ -149,9 +153,14 @@ func (g *Grammar) WriteConnMatrixTo(writer io.Writer) (int, error) {
 	if err != nil {
 		return 2, err
 	}
-	n, err := writer.Write(g.connectTableBytes[g.connectTableOffset : g.connectTableOffset+2*int(g.leftIdSize)*int(g.rightIdSize)])
-	if err != nil {
-		return 4, err
+	var n int
+	l := 2 * int(g.leftIdSize) * int(g.rightIdSize)
+	if l > 0 {
+		var err error
+		n, err = writer.Write(g.connectTableBytes[g.connectTableOffset : g.connectTableOffset+l])
+		if err != nil {
+			return 4, err
+		}
 	}
 	return n + 4, nil
 }

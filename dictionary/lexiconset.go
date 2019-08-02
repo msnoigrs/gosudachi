@@ -5,17 +5,20 @@ const (
 )
 
 type LexiconSet struct {
-	lexicons []*DoubleArrayLexicon
+	lexicons   []*DoubleArrayLexicon
+	posOffsets []int32
 }
 
 func NewLexiconSet(systemLexicon *DoubleArrayLexicon) *LexiconSet {
 	return &LexiconSet{
-		lexicons: []*DoubleArrayLexicon{systemLexicon},
+		lexicons:   []*DoubleArrayLexicon{systemLexicon},
+		posOffsets: []int32{0},
 	}
 }
 
-func (s *LexiconSet) Add(lexicon *DoubleArrayLexicon) {
+func (s *LexiconSet) Add(lexicon *DoubleArrayLexicon, posOffset int32) {
 	s.lexicons = append(s.lexicons, lexicon)
+	s.posOffsets = append(s.posOffsets, posOffset)
 }
 
 func (s *LexiconSet) IsFull() bool {
@@ -59,6 +62,10 @@ func (s *LexiconSet) GetWordInfo(wordId int32) *WordInfo {
 	dictId := int(uint32(wordId) >> 28)
 	wordId = int32(uint32(wordId) & 0xfffffff)
 	wi := s.lexicons[dictId].GetWordInfo(wordId)
+	if dictId > 0 && int32(wi.PosId) >= s.posOffsets[1] {
+		// user defined part-of-speech
+		wi.PosId = int16(int32(wi.PosId) - s.posOffsets[1] + s.posOffsets[dictId])
+	}
 	s.convertSplit(wi.AUnitSplit, dictId)
 	s.convertSplit(wi.BUnitSplit, dictId)
 	s.convertSplit(wi.WordStructure, dictId)

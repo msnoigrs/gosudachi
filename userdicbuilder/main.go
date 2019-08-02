@@ -41,7 +41,7 @@ Options:
 	}
 
 	dh := dictionary.NewDictionaryHeader(
-		dictionary.UserDictVersion,
+		dictionary.UserDictVersion2,
 		time.Now().Unix(),
 		description,
 	)
@@ -79,10 +79,11 @@ Options:
 	}
 
 	dicbuilder := dictionary.NewDictionaryBuilder(int64(n), true, utf16string)
+	store := dictionary.NewPosTableUser(sdic.Grammar)
 
 	fmt.Fprint(os.Stderr, "reading the source file...")
 	for _, lexiconpath := range flag.Args() {
-		err := build(dicbuilder, sdic.Grammar, lexiconpath)
+		err := build(dicbuilder, store, lexiconpath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s", err, lexiconpath)
 			os.Exit(1)
@@ -91,7 +92,13 @@ Options:
 	p := message.NewPrinter(language.English)
 	p.Fprintf(os.Stderr, " %d words\n", dicbuilder.EntrySize())
 
-	err = dicbuilder.WriteLexicon(outputWriter, sdic.Grammar)
+	err = dicbuilder.WriteGrammarUser(&store.PosTable, outputWriter)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "fail to write grammar: %s\n", err)
+		os.Exit(1)
+	}
+
+	err = dicbuilder.WriteLexicon(outputWriter, store)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
