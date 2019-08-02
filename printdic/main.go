@@ -39,7 +39,7 @@ Options:
 	if systemdict != "" {
 		sdic, err = dictionary.ReadSystemDictionary(systemdict, utf16string)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s", err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		defer sdic.Close()
@@ -47,7 +47,7 @@ Options:
 
 	err = dictionary.PrintDictionary(flag.Args()[0], utf16string, sdic, os.Stdout)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }

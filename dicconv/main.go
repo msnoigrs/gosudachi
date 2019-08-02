@@ -70,14 +70,14 @@ Options:
 
 	hb, err := fromdic.Header.ToBytes()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	var offset int64
 	n, err := bufiooutput.Write(hb)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "fail to write header: %s", err)
+		fmt.Fprintf(os.Stderr, "fail to write header: %s\n", err)
 		os.Exit(1)
 	}
 	offset = int64(n)
@@ -89,12 +89,12 @@ Options:
 		buffer := bytes.NewBuffer([]byte{})
 		err = fromdic.Grammar.WritePOSTableTo(buffer, utf16string)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s", err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		n64, err = buffer.WriteTo(bufiooutput)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s", err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		p.Fprintf(os.Stderr, " %d bytes\n", n64)
@@ -104,7 +104,7 @@ Options:
 		fmt.Fprint(os.Stderr, "writting the connection matrix...")
 		n, err = fromdic.Grammar.WriteConnMatrixTo(bufiooutput)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s", err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		p.Fprintf(os.Stderr, " %d bytes\n", n)
@@ -114,7 +114,7 @@ Options:
 	fmt.Fprint(os.Stderr, "writting the trie...")
 	n, err = fromdic.Lexicon.WriteTrieTo(bufiooutput)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	p.Fprintf(os.Stderr, " %d bytes\n", n)
@@ -123,7 +123,7 @@ Options:
 	fmt.Fprint(os.Stderr, "writting the word-ID table...")
 	n, err = fromdic.Lexicon.WriteWordIdTableTo(bufiooutput)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	p.Fprintf(os.Stderr, " %d bytes\n", n)
@@ -132,7 +132,7 @@ Options:
 	fmt.Fprint(os.Stderr, "writting the word parameters...")
 	n, err = fromdic.Lexicon.WriteWordParamsTo(bufiooutput)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	p.Fprintf(os.Stderr, " %d bytes\n", n)
@@ -140,7 +140,7 @@ Options:
 
 	err = bufiooutput.Flush()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
@@ -148,42 +148,42 @@ Options:
 	offsetlen := int64(4 * fromdic.Lexicon.Size())
 	_, err = outputfd.Seek(offsetlen, io.SeekCurrent)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	bufiooutput = bufio.NewWriter(outputfd)
 
 	n, offsets, err := fromdic.Lexicon.WriteWordInfos(bufiooutput, offset, offsetlen, utf16string)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	p.Fprintf(os.Stderr, " %d bytes\n", n)
 
 	err = bufiooutput.Flush()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	fmt.Fprint(os.Stderr, "writting wordInfo offsets...")
 	_, err = outputfd.Seek(offset, io.SeekStart)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	bufiooutput = bufio.NewWriter(outputfd)
 
 	n64, err = offsets.WriteTo(bufiooutput)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	p.Fprintf(os.Stderr, " %d bytes\n", n64)
 
 	err = bufiooutput.Flush()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }

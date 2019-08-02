@@ -48,20 +48,20 @@ Options:
 
 	hb, err := dh.ToBytes()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	sdic, err := dictionary.ReadSystemDictionary(systemdict, utf16string)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	defer sdic.Close()
 
 	outputWriter, err := os.OpenFile(outputpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	defer outputWriter.Close()
@@ -69,12 +69,12 @@ Options:
 	bufout := bufio.NewWriter(outputWriter)
 	n, err := bufout.Write(hb)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintf(os.Stderr, "fail to write header: %s\n", err)
 		os.Exit(1)
 	}
 	err = bufout.Flush()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintf(os.Stderr, "fail to write header: %s\n", err)
 		os.Exit(1)
 	}
 
@@ -100,7 +100,7 @@ Options:
 
 	err = dicbuilder.WriteLexicon(outputWriter, store)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err)
+		fmt.Fprintf(os.Stderr, "fail to write lexicon: %s\n", err)
 		os.Exit(1)
 	}
 }
