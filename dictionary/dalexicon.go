@@ -73,7 +73,7 @@ func (l *wordParameterList) getCost(wordId int32) int16 {
 }
 
 func (l *wordParameterList) setCost(wordId int32, cost int16) {
-	if l.isCopied {
+	if !l.isCopied {
 		l.copyBuffer()
 	}
 
