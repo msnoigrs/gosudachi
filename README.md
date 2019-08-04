@@ -4,6 +4,8 @@ gosudachiは日本語形態素解析器である[Sudachi](https://github.com/Wor
 
 以下では、株式会社ワークスアプリケーションズ徳島人工知能NLP研究所が開発公開しているオリジナルのSudachiを「Java版Sudachi」「Java版」、Java版sudachi用の辞書ファイルを「Java版sudachi辞書」と表記します。
 
+gosudachiは、Java版sudachiのバージョン0.3.0相当です。
+
 
 ## 特徴
 
@@ -129,7 +131,7 @@ Java版と同様にデフォルトで利用できるプラグインは以下の7
 このリポジトリをcloneします。 cloneしたディレクトリに移動し、ビルドスクリプトを実行します。
 
     $ git clone https://github.com/msnoigrs/gosudachi
-    $ ch gosudachi
+    $ cd gosudachi
     $ bash scripts/build.sh
 
 distディレクトリにバイナリが作成されます。作成されるバイナリは以下の通りです。
@@ -141,18 +143,50 @@ distディレクトリにバイナリが作成されます。作成されるバ�
 -   **printdicheader:** 辞書ファイルヘッダ情報表示プログラム
 -   **dicconv:** 辞書の文字列エンコードをUTF-16とUTF-8間で相互に変換するプログラム
 
+ビルドスクリプトを使わない場合は、コマンドプロンプト上で以下を実行してください。Windowsでも作成可能です。
+
+    $ git clone https://github.com/msnoigrs/gosudachi
+    $ cd gosudachi/data
+    $ go generate
+    $ cd ..
+    $ cd gosudachicli
+    $ go build
+    $ cd ..
+    $ cd dicbuilder
+    $ go build
+    $ cd ..
+    $ cd userdicbuilder
+    $ go build
+    $ cd ..
+    $ cd printdic
+    $ go build
+    $ cd ..
+    $ go printdicheader
+    $ go build
+    $ cd ..
+    $ cd dicconv
+    $ go build
+
 
 ### 辞書の作成
 
-辞書のソースもJava版Sudachiのものを利用します。 Java版Sudachiをgithubからcloneした後、git lfs pullで取得します。 辞書のソースファイルは、 `core_lex.csv` と `notcore_lex.csv` の2つです。
+辞書のソースもJava版Sudachiのものを利用します。 [SudachiDict](https://github.com/WorksApplications/SudachiDict)をgithubからcloneした後、git lfs pullで取得します。 辞書のソースファイルは、 `small_lex.csv` と `core_lex.csv` と `notcore_lex.csv` の3つです。
 
-distディレクトリに辞書のソースファイルをコピーした後、辞書を作成します。
+辞書を作成するスクリプトを利用する場合、以下を実行してください。
 
-    $ cp core_lex.csv notcore_lex.csv dist
-    $ cd dist
-    $ bash ../scripts/mksystemdic.sh
+    $ git clone https://github.com/WorksApplications/SudachiDict.git
+    $ cd SudachiDict
+    $ git lfs pull
+    $ cd ../dist
+    $ bash ../scripts/mksystemdic.sh ../SudachiDict
 
-distディレクトリに `system_core.dic` および `system_full.dic` ファイルが作成されます。
+distディレクトリに `system_small.dic` 、 `system_core.dic` および `system_full.dic` ファイルが作成されます。
+
+辞書作成スクリプトを使わない場合は、コマンドプロンプト上で以下を実行してください。
+
+    $ dicbuilder -o system_small.dic -m matrix.def small_lex.csv
+    $ dicbuilder -o system_core.dic -m matrix.def small_lex.csv core_lex.csv
+    $ dicbuilder -o system_full.dic -m matrix.def small_lex.csv core_lex.csv notcore_lex.csv
 
 
 ## コマンド
@@ -248,7 +282,7 @@ Sudachiコマンドラインです。オプションを指定せずに実行す�
 -   -s システム辞書ファイル（ユーザー辞書の情報を出力する場合に必要）
 -   -j UTF-16エンコードの辞書を読み込み
 
--   **Java版:** com.worksap.nlp.sudachi.dictionary.PrintDictionary
+-   **Java版:** com.worksap.nlp.sudachi.dictionary.DictionaryPrinter
 
 
 ### printdicheader
@@ -257,7 +291,7 @@ Sudachiコマンドラインです。オプションを指定せずに実行す�
 
     $ printdicheader inputdic
 
--   **java版:** com.worksap.nlp.sudachi.dictionary.PrintDictionaryHeader
+-   **java版:** com.worksap.nlp.sudachi.dictionary.DictionaryHeaderPrinter
 
 
 ### dicconv
