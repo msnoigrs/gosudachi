@@ -2,6 +2,7 @@
 
 PROXY=""
 VERSION=""
+UNIDICVER="2.1.2"
 POMXML="pom.xml"
 MATRIXDEF="matrix.def"
 SYSSMALLDIC="system_small.dic"
@@ -11,7 +12,7 @@ SMALLCSV="small_lex.csv"
 CORECSV="core_lex.csv"
 NOTCORECSV="notcore_lex.csv"
 
-if [ -n "${1}" ]; then
+init_env() {
     if [ -f "${1}/pom.xml" ]; then
         POMXML="${1}/pom.xml"
     fi
@@ -27,6 +28,12 @@ if [ -n "${1}" ]; then
     if [ -f "${1}/src/main/text/${NOTCORECSV}" ]; then
         NOTCORECSV="${1}/src/main/text/${NOTCORECSV}"
     fi
+}
+
+if [ -n "${1}" ]; then
+    init_env "${1}"
+elif [ -d "../SudachiDict" ]; then
+    init_env "../SudachiDict"
 fi
 
 if [ ! -f "${MATRIXDEF}" ]; then
