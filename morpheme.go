@@ -99,16 +99,17 @@ func (l *MorphemeList) Get(index int) *Morpheme {
 }
 
 func (l *MorphemeList) GetBegin(index int) int {
-	return l.path[index].Begin
+	return l.inputText.GetOriginalIndex(l.path[index].Begin)
 }
 
 func (l *MorphemeList) GetEnd(index int) int {
-	return l.path[index].End
+	return l.inputText.GetOriginalIndex(l.path[index].End)
 }
 
 func (l *MorphemeList) GetSurface(index int) string {
-	node := l.path[index]
-	return string([]byte(l.inputText.OriginalText)[node.Begin:node.End])
+	begin := l.GetBegin(index)
+	end := l.GetEnd(index)
+	return string([]rune(l.inputText.OriginalText)[begin:end])
 }
 
 func (l *MorphemeList) GetWordInfo(index int) *dictionary.WordInfo {

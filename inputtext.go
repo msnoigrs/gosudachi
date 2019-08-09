@@ -10,17 +10,19 @@ type InputText struct {
 	OriginalText             string
 	ModifiedText             string
 	Bytea                    []byte
+	offsets                  []int
 	byteIndexes              []int
 	charCategories           []uint32
 	charCategoryContinuities []int
 	canBowList               []bool
 }
 
-func NewInputText(originalText string, modifiedText string, bytea []byte, byteIndexes []int, charCategories []uint32, charCategoryContinuities []int, canBowList []bool) *InputText {
+func NewInputText(originalText string, modifiedText string, bytea []byte, offsets []int, byteIndexes []int, charCategories []uint32, charCategoryContinuities []int, canBowList []bool) *InputText {
 	return &InputText{
 		OriginalText:             originalText,
 		ModifiedText:             modifiedText,
 		Bytea:                    bytea,
+		offsets:                  offsets,
 		byteIndexes:              byteIndexes,
 		charCategories:           charCategories,
 		charCategoryContinuities: charCategoryContinuities,
@@ -42,6 +44,10 @@ func (t *InputText) GetSubstring(begin int, end int) string {
 
 func (t *InputText) GetOffsetTextLength(index int) int {
 	return t.byteIndexes[index]
+}
+
+func (t *InputText) GetOriginalIndex(index int) int {
+	return t.offsets[index]
 }
 
 func (t *InputText) GetCharCategoryTypes(index int) uint32 {
@@ -92,13 +98,22 @@ func (t *InputText) IsCharAlignment(index int) bool {
 type InputTextBuilder struct {
 	OriginalText  string
 	modifiedRunes []rune
+	textOffsets   []int
 	grammar       *dictionary.Grammar
 }
 
 func NewInputTextBuilder(text string, grammar *dictionary.Grammar) *InputTextBuilder {
+	modifiedRunes := []rune(text)
+	offsetslen := len(modifiedRunes) + 1
+	textOffsets := make([]int, offsetslen, offsetslen)
+	for i := 0; i < len(modifiedRunes); i++ {
+		textOffsets[i] = i
+	}
+	textOffsets[len(modifiedRunes)] = len(modifiedRunes)
 	return &InputTextBuilder{
 		OriginalText:  text,
-		modifiedRunes: []rune(text),
+		modifiedRunes: modifiedRunes,
+		textOffsets:   textOffsets,
 		grammar:       grammar,
 	}
 }
@@ -110,20 +125,33 @@ func (builder *InputTextBuilder) GetText() []rune {
 }
 
 func (builder *InputTextBuilder) Replace(begin int, end int, runes []rune) {
-	ol := len(builder.modifiedRunes)
 	rl := len(runes)
 	tlen := end - begin
 
+	offset := builder.textOffsets[begin]
+
 	if rl < tlen {
+		ol := len(builder.modifiedRunes)
 		copy(builder.modifiedRunes[begin+rl:], builder.modifiedRunes[end:])
 		copy(builder.modifiedRunes[begin:], runes)
 		builder.modifiedRunes = builder.modifiedRunes[:ol-tlen+rl]
+
+		tolen := len(builder.textOffsets)
+		copy(builder.textOffsets[begin+rl:], builder.textOffsets[end:])
+		builder.textOffsets = builder.textOffsets[:tolen-tlen+rl]
 	} else if rl == tlen {
 		copy(builder.modifiedRunes[begin:], runes)
 	} else {
 		builder.modifiedRunes = append(builder.modifiedRunes, make([]rune, rl-tlen)...)
 		copy(builder.modifiedRunes[begin+rl:], builder.modifiedRunes[end:])
 		copy(builder.modifiedRunes[begin:], runes)
+
+		builder.textOffsets = append(builder.textOffsets, make([]int, rl-tlen)...)
+		copy(builder.textOffsets[begin+rl:], builder.textOffsets[end:])
+	}
+
+	for i := 0; i < rl; i++ {
+		builder.textOffsets[begin+i] = offset
 	}
 }
 
@@ -141,6 +169,7 @@ func (builder *InputTextBuilder) Build() *InputText {
 	bytelength := len(p)
 	size := bytelength + 1
 	indexes := make([]int, size, size)
+	offsets := make([]int, size, size)
 
 	sizes := make([]int, runeCount, runeCount)
 
@@ -150,11 +179,13 @@ func (builder *InputTextBuilder) Build() *InputText {
 		sizes[i] = size
 		for j := 0; j < size; j++ {
 			indexes[pi] = i
+			offsets[pi] = builder.textOffsets[i]
 			pi++
 		}
 		p = p[size:]
 	}
 	indexes[bytelength] = runeCount
+	offsets[bytelength] = builder.textOffsets[len(builder.textOffsets)-1]
 
 	// getCharCategoryContinuities
 	charCategoryContinuities := make([]int, bytelength, bytelength)
@@ -193,6 +224,7 @@ func (builder *InputTextBuilder) Build() *InputText {
 		builder.OriginalText,
 		modifiedText,
 		keepp,
+		offsets,
 		indexes,
 		charCategoryTypes,
 		charCategoryContinuities,

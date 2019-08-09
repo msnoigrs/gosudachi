@@ -92,8 +92,8 @@ func ConcatenateNodes(path *[]*LatticeNode, begin int, end int, lattice *Lattice
 		return nil, fmt.Errorf("begin >= end")
 	}
 	tpath := *path
-	b := tpath[begin].Begin
-	e := tpath[end-1].End
+	b := tpath[begin].GetBegin()
+	e := tpath[end-1].GetEnd()
 	bwi := tpath[begin].GetWordInfo()
 	posId := bwi.PosId
 	var (
@@ -103,10 +103,10 @@ func ConcatenateNodes(path *[]*LatticeNode, begin int, end int, lattice *Lattice
 		readingFormLen    int
 		length            int16
 	)
-	wilist := make([]*dictionary.WordInfo, len(tpath), len(tpath))
-	for i, n := range tpath {
-		info := n.GetWordInfo()
-		wilist[i] = info
+	wilist := make([]*dictionary.WordInfo, 0, end - begin)
+	for i := begin; i < end; i++ {
+		info := tpath[i].GetWordInfo()
+		wilist = append(wilist, info)
 		surfaceLen += len(info.Surface)
 		length += info.HeadwordLength
 		if normalizedForm == "" {
@@ -154,8 +154,8 @@ func ConcatenateOov(path *[]*LatticeNode, begin int, end int, posId int16, latti
 		return nil, fmt.Errorf("begin >= end")
 	}
 	tpath := *path
-	b := tpath[begin].Begin
-	e := tpath[end-1].End
+	b := tpath[begin].GetBegin()
+	e := tpath[end-1].GetEnd()
 
 	n := lattice.GetMinimumNode(b, e)
 	if n != nil {
@@ -167,10 +167,10 @@ func ConcatenateOov(path *[]*LatticeNode, begin int, end int, posId int16, latti
 		surfaceLen int
 		length     int16
 	)
-	wilist := make([]*dictionary.WordInfo, len(tpath), len(tpath))
-	for i, n := range tpath {
-		info := n.GetWordInfo()
-		wilist[i] = info
+	wilist := make([]*dictionary.WordInfo, 0, end - begin)
+	for i := begin; i < end; i++ {
+		info := tpath[i].GetWordInfo()
+		wilist = append(wilist, info)
 		surfaceLen += len(info.Surface)
 		length += info.HeadwordLength
 	}
@@ -202,8 +202,10 @@ func GetCharCategoryTypes(text *InputText, node *LatticeNode) uint32 {
 
 func replaceNode(path []*LatticeNode, begin int, end int, node *LatticeNode) []*LatticeNode {
 	d := end - begin
-	if d > 1 && end < len(path) {
-		copy(path[begin+1:], path[end:])
+	if d > 1 {
+		if end < len(path) {
+			copy(path[begin+1:], path[end:])
+		}
 		path = path[:len(path)-d+1]
 	}
 	path[begin] = node
