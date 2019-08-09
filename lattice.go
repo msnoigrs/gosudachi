@@ -283,13 +283,18 @@ func (l *Lattice) Dump(w io.Writer) {
 			var (
 				surface, pos string
 			)
-			wi := rNode.GetWordInfo()
-			surface = wi.Surface
-			posId := wi.PosId
-			if posId < 0 {
-				pos = "(null)"
+			if !rNode.isDefined {
+				surface = "(null)"
+				pos = "BOS/EOS"
 			} else {
-				pos = strings.Join(l.grammar.GetPartOfSpeechString(posId), ",")
+				wi := rNode.GetWordInfo()
+				surface = wi.Surface
+				posId := wi.PosId
+				if posId < 0 {
+					pos = "(null)"
+				} else {
+					pos = strings.Join(l.grammar.GetPartOfSpeechString(posId), ",")
+				}
 			}
 
 			fmt.Fprintf(w, "%d: %d %d %s(%d) %s %d %d %d: ", index, rNode.Begin, rNode.End, surface, rNode.wordId, pos, rNode.leftId, rNode.rightId, rNode.cost)
