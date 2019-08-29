@@ -109,7 +109,7 @@ func (da *DoubleArray) ExactMatchSearch(key []byte) (int, int) {
 	for _, k := range key {
 		nodePos ^= u.offset() ^ uint32(k)
 		u = daunit(da.array[int(nodePos)])
-		if u.label() != k {
+		if u.label() != uint32(k) {
 			return -1, 0
 		}
 	}
@@ -127,8 +127,8 @@ func (da *DoubleArray) CommonPrefixSearch(key []byte, offset int, maxNumResult i
 	u := daunit(da.array[0])
 	nodePos ^= u.offset()
 	for i := offset; i < len(key); i++ {
-		k := key[i]
-		nodePos ^= uint32(k)
+		k := uint32(key[i])
+		nodePos ^= k
 		u = daunit(da.array[int(nodePos)])
 		if u.label() != k {
 			return result
@@ -205,8 +205,8 @@ func (it *Iterator) Err() error {
 
 func (it *Iterator) getNext() (int, int) {
 	for ; it.offset < len(it.key); it.offset++ {
-		k := it.key[it.offset]
-		it.nodePos ^= uint32(k)
+		k := uint32(it.key[it.offset])
+		it.nodePos ^= k
 		u := daunit(it.array[int(it.nodePos)])
 		if u.label() != k {
 			it.offset = len(it.key) // no more loop
@@ -236,8 +236,8 @@ func (da *DoubleArray) Traverse(key []byte, offset int, length int, nodePosition
 	u := daunit(da.array[0])
 
 	for i := offset; i < length; i++ {
-		k := key[i]
-		id ^= u.offset() ^ uint32(k)
+		k := uint32(key[i])
+		id ^= u.offset() ^ k
 		u = daunit(da.array[int(id)])
 		if u.label() != k {
 			return &TraverseResult{
@@ -295,8 +295,8 @@ func (u daunit) value() int {
 	return int(uint32(u) & ((uint32(1) << 31) - 1))
 }
 
-func (u daunit) label() byte {
-	return byte(uint32(u) & 0xFF)
+func (u daunit) label() uint32 {
+	return uint32(u) & (uint32(1) << 31 | 0xFF)
 }
 
 func (u daunit) offset() uint32 {
