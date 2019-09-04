@@ -257,14 +257,14 @@ type stringLenFunc func(s string) bool
 type DictionaryBuilder struct {
 	trieKeys         *redblacktree.Tree
 	wordEntries      []*wordEntry
-	isUserDictionary bool
 	buffer           *bytes.Buffer
 	position         int64
+	systemLexicon    *DoubleArrayLexicon
 	writeStringF     writeStringFunc
 	stringLen        stringLenFunc
 }
 
-func NewDictionaryBuilder(position int64, isUserDictionary bool, utf16string bool) *DictionaryBuilder {
+func NewDictionaryBuilder(position int64, systemLexicon *DoubleArrayLexicon, utf16string bool) *DictionaryBuilder {
 	ret := &DictionaryBuilder{
 		trieKeys: redblacktree.NewWith(func(a, b interface{}) int {
 			l, _ := a.([]byte)
@@ -280,7 +280,7 @@ func NewDictionaryBuilder(position int64, isUserDictionary bool, utf16string boo
 			}
 			return len(l) - len(r)
 		}),
-		isUserDictionary: isUserDictionary,
+		systemLexicon:    systemLexicon,
 		buffer:           bytes.NewBuffer([]byte{}),
 		position:         position,
 	}
@@ -891,11 +891,11 @@ func (dicbuilder *DictionaryBuilder) parseSplitInfo(info string, store PosIdStor
 			parsed, err := strconv.ParseInt(word[1:], 10, 32)
 			if err == nil {
 				pint := int32(parsed)
-				if dicbuilder.isUserDictionary {
-					pint |= (1 << 28)
-				}
 				if pint < 0 || pint >= int32(len(dicbuilder.wordEntries)) {
 					return []int32{}, fmt.Errorf("invalid word ID: %s", word)
+				}
+				if dicbuilder.systemLexicon != nil {
+					pint |= (int32(1) << 28)
 				}
 				ret = append(ret, pint)
 				continue
@@ -905,8 +905,14 @@ func (dicbuilder *DictionaryBuilder) parseSplitInfo(info string, store PosIdStor
 		parsed, err := strconv.ParseInt(word, 10, 32)
 		if err == nil {
 			pint := int32(parsed)
-			if pint < 0 || pint >= int32(len(dicbuilder.wordEntries)) {
-				return []int32{}, fmt.Errorf("invalid word ID: %s", word)
+			if dicbuilder.systemLexicon != nil {
+				if pint < 0 || pint >= dicbuilder.systemLexicon.Size() {
+					return []int32{}, fmt.Errorf("invalid word ID: %s", word)
+				}
+			} else {
+				if pint < 0 || pint >= int32(len(dicbuilder.wordEntries)) {
+					return []int32{}, fmt.Errorf("invalid word ID: %s", word)
+				}
 			}
 			ret = append(ret, pint)
 			continue
@@ -924,7 +930,7 @@ func (dicbuilder *DictionaryBuilder) parseSplitInfo(info string, store PosIdStor
 	return ret, nil
 }
 
-func (dicbuilder *DictionaryBuilder) wordToId(text string, store PosIdStore) (int, error) {
+func (dicbuilder *DictionaryBuilder) wordToId(text string, store PosIdStore) (int32, error) {
 	var recordBuf []string
 	r := newLexiconReader(strings.NewReader(text))
 	for {
@@ -933,28 +939,34 @@ func (dicbuilder *DictionaryBuilder) wordToId(text string, store PosIdStore) (in
 			break
 		}
 		if err != nil {
-			return -1, err
+			return int32(-1), err
 		}
 		if len(cols) < 8 {
-			return -1, fmt.Errorf("too few columns: %s", text)
+			return int32(-1), fmt.Errorf("too few columns: %s", text)
 		}
 		posId := store.GetPosId(cols[1], cols[2], cols[3], cols[4], cols[5], cols[6])
 		if posId < 0 {
-			return -1, fmt.Errorf("invalid part of speech: %s", text)
+			return int32(-1), fmt.Errorf("invalid part of speech: %s", text)
 		}
 		return dicbuilder.getWordId(cols[0], posId, cols[7]), nil
 	}
-	return -1, nil
+	return int32(-1), nil
 }
 
-func (dicbuilder *DictionaryBuilder) getWordId(headword string, posId int16, readingForm string) int {
+func (dicbuilder *DictionaryBuilder) getWordId(headword string, posId int16, readingForm string) int32 {
 	for wid, entry := range dicbuilder.wordEntries {
 		wi := entry.WordInfo
 		if wi.Surface == headword && wi.PosId == posId && wi.ReadingForm == readingForm {
-			return wid
+			if dicbuilder.systemLexicon != nil {
+				return int32(wid) | (int32(1) << 28)
+			}
+			return int32(wid)
 		}
 	}
-	return -1
+	if dicbuilder.systemLexicon != nil {
+		return dicbuilder.systemLexicon.GetWordId(headword, posId, readingForm)
+	}
+	return int32(-1)
 }
 
 func (dicbuilder *DictionaryBuilder) EntrySize() int {

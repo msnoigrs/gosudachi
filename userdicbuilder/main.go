@@ -78,7 +78,7 @@ Options:
 		os.Exit(1)
 	}
 
-	dicbuilder := dictionary.NewDictionaryBuilder(int64(n), true, utf16string)
+	dicbuilder := dictionary.NewDictionaryBuilder(int64(n), sdic.Lexicon, utf16string)
 	store := dictionary.NewPosTableUser(sdic.Grammar)
 
 	fmt.Fprint(os.Stderr, "reading the source file...")
