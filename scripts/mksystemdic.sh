@@ -3,6 +3,8 @@
 PROXY=""
 VERSION=""
 UNIDICVER="2.1.2"
+UNIDICZIP="unidic-mecab-${UNIDICVER}_src.zip"
+UNIDICURL="https://unidic.ninjal.ac.jp/unidic_archive/cwj/${UNIDICVER}/${UNIDICZIP}"
 POMXML="pom.xml"
 MATRIXDEF="matrix.def"
 SYSSMALLDIC="system_small.dic"
