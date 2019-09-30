@@ -8,7 +8,7 @@ import (
 
 type JoinKatakanaOovPluginConfig struct {
 	OovPOS    *[]string
-	minLength *int
+	MinLength *int
 }
 
 type JoinKatakanaOovPlugin struct {
@@ -42,8 +42,8 @@ func (p *JoinKatakanaOovPlugin) SetUp(grammar *dictionary.Grammar) error {
 		return fmt.Errorf("JoinKatakanaOovPlugin: oovPOS is invalid")
 	}
 	minLength := 1
-	if p.config.minLength != nil {
-		minLength = *p.config.minLength
+	if p.config.MinLength != nil {
+		minLength = *p.config.MinLength
 		if minLength < 0 {
 			return fmt.Errorf("JoinKatakanaOovPlugin: minLength is negative")
 		}
