@@ -53,8 +53,8 @@ func Mmap(fd *os.File, write bool, offset int64, size int64) ([]byte, error) {
 	// Copied this snippet from golang/sys package
 	var sl = struct {
 		addr uintptr
-		len int
-		cap int
+		len  int
+		cap  int
 	}{addr, int(size), int(size)}
 
 	// Use unsafe to turn sl into a []byte

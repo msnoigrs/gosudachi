@@ -15,14 +15,14 @@ const (
 )
 
 var UndefinedWordInfo = &dictionary.WordInfo{
-		Surface: NullSurface,
-		HeadwordLength: 0,
-		PosId: -1,
-		NormalizedForm: NullSurface,
-		DictionaryFormWordId: -1,
-		DictionaryForm: NullSurface,
-		ReadingForm: NullSurface,
-	}
+	Surface:              NullSurface,
+	HeadwordLength:       0,
+	PosId:                -1,
+	NormalizedForm:       NullSurface,
+	DictionaryFormWordId: -1,
+	DictionaryForm:       NullSurface,
+	ReadingForm:          NullSurface,
+}
 
 type LatticeNode struct {
 	Begin            int
