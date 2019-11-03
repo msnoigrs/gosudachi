@@ -296,7 +296,7 @@ func (u daunit) value() int {
 }
 
 func (u daunit) label() uint32 {
-	return uint32(u) & (uint32(1) << 31 | 0xFF)
+	return uint32(u) & (uint32(1)<<31 | 0xFF)
 }
 
 func (u daunit) offset() uint32 {

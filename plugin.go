@@ -103,7 +103,7 @@ func ConcatenateNodes(path *[]*LatticeNode, begin int, end int, lattice *Lattice
 		readingFormLen    int
 		length            int16
 	)
-	wilist := make([]*dictionary.WordInfo, 0, end - begin)
+	wilist := make([]*dictionary.WordInfo, 0, end-begin)
 	for i := begin; i < end; i++ {
 		info := tpath[i].GetWordInfo()
 		wilist = append(wilist, info)
@@ -167,7 +167,7 @@ func ConcatenateOov(path *[]*LatticeNode, begin int, end int, posId int16, latti
 		surfaceLen int
 		length     int16
 	)
-	wilist := make([]*dictionary.WordInfo, 0, end - begin)
+	wilist := make([]*dictionary.WordInfo, 0, end-begin)
 	for i := begin; i < end; i++ {
 		info := tpath[i].GetWordInfo()
 		wilist = append(wilist, info)
