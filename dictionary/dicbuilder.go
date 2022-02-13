@@ -24,7 +24,7 @@ const (
 	StringUtf8MaxLength  = 32767
 	StringUtf16MaxLength = 32767
 	ArrayMaxLength       = 127
-	NumberOfColumns      = 18
+	NumberOfColumns      = 19
 	BufferSize           = 1024 * 1024
 )
 
@@ -255,13 +255,13 @@ type writeStringFunc func(buffer *bytes.Buffer, s string) error
 type stringLenFunc func(s string) bool
 
 type DictionaryBuilder struct {
-	trieKeys         *redblacktree.Tree
-	wordEntries      []*wordEntry
-	buffer           *bytes.Buffer
-	position         int64
-	systemLexicon    *DoubleArrayLexicon
-	writeStringF     writeStringFunc
-	stringLen        stringLenFunc
+	trieKeys      *redblacktree.Tree
+	wordEntries   []*wordEntry
+	buffer        *bytes.Buffer
+	position      int64
+	systemLexicon *DoubleArrayLexicon
+	writeStringF  writeStringFunc
+	stringLen     stringLenFunc
 }
 
 func NewDictionaryBuilder(position int64, systemLexicon *DoubleArrayLexicon, utf16string bool) *DictionaryBuilder {
@@ -280,9 +280,9 @@ func NewDictionaryBuilder(position int64, systemLexicon *DoubleArrayLexicon, utf
 			}
 			return len(l) - len(r)
 		}),
-		systemLexicon:    systemLexicon,
-		buffer:           bytes.NewBuffer([]byte{}),
-		position:         position,
+		systemLexicon: systemLexicon,
+		buffer:        bytes.NewBuffer([]byte{}),
+		position:      position,
 	}
 	if utf16string {
 		ret.writeStringF = writeStringUtf16
